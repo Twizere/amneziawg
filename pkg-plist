@@ -1,0 +1,33 @@
+bin/awg
+bin/awg-api
+bin/awg-quick
+bin/amneziawg-go
+bin/post_install.sh
+pkg/amneziawireguard/includes/awgconfig.php
+pkg/amneziawireguard/includes/awg_header.inc
+pkg/amneziawireguard/includes/wg_api.inc
+pkg/amneziawireguard/includes/wg_globals.inc
+pkg/amneziawireguard/includes/wg_guiconfig.inc
+pkg/amneziawireguard/includes/wg_install.inc
+pkg/amneziawireguard/includes/wg_service.inc
+pkg/amneziawireguard/includes/wg_validate.inc
+pkg/amneziawireguard/includes/wg.inc
+pkg/amneziawg.xml
+share/pfSense-pkg-AmneziaWireguard/info.xml
+www/awg/js/AmneziaWireguardHelper.js
+www/awg/api/index.php
+www/awg/awg_api.php
+www/awg/awg_peers_edit.php
+www/awg/awg_peers.php
+www/awg/awg_settings.php
+www/awg/awg_tunnels_edit.php
+www/awg/awg_tunnels.php
+www/awg/status_amneziawg.php
+www/awg/status_log.php
+www/shortcuts/pkg_amneziawireguard.inc
+www/widgets/include/amneziawg.inc
+www/widgets/widgets/amneziawg.widget.php
+@postexec chmod +x /usr/local/bin/post_install.sh
+@postexec /usr/local/bin/post_install.sh
+@postexec /usr/local/bin/php -f /usr/local/pkg/amneziawireguard/includes/wg_service.inc install
+
