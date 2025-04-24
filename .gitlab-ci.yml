@@ -1,0 +1,51 @@
+stages:
+  - build
+  - package
+  - deploy
+
+before_script:
+  - echo "Setting up the build environment"
+
+build_package:
+  stage: build
+  script:
+    - echo "Installing dependencies"
+    - echo "Cleaning up previous stagedir"
+    - rm -rf $CI_PROJECT_DIR/stagedir  # Clean up any previous stagedir
+    - echo "Listing files in $CI_PROJECT_DIR before copying"
+    - ls -la $CI_PROJECT_DIR  # List files in the project directory to check the files/ directory
+    - mkdir -p $CI_PROJECT_DIR/stagedir  # Create stagedir in the CI working directory
+    - echo "Listing files in $CI_PROJECT_DIR/stagedir after creation"
+    - ls -la $CI_PROJECT_DIR/stagedir  # Verify that stagedir is created
+    - echo "Checking if pkg-plist exists"
+    - test -f $CI_PROJECT_DIR/pkg-plist && echo "pkg-plist file exists" || echo "pkg-plist file is missing"  # Check if pkg-plist is present
+    - echo "Checking if metadir exists"
+    - test -d $CI_PROJECT_DIR/metadir && echo "metadir directory exists" || echo "metadir directory is missing"  # Check if metadir directory exists
+    - echo "Checking if +MANIFEST file exists inside metadir"
+    - test -f $CI_PROJECT_DIR/metadir/+MANIFEST && echo "+MANIFEST file exists in metadir" || echo "+MANIFEST file is missing in metadir"  # Check if +MANIFEST exists in metadir
+    - echo "Copying files to stagedir"
+    - cp -r $CI_PROJECT_DIR/files/. $CI_PROJECT_DIR/stagedir/  # Copy entire structure, including hidden files
+    - echo "Listing files in stagedir after copy"
+    - ls -la $CI_PROJECT_DIR/stagedir  # Verify contents of stagedir after copying
+  artifacts:
+    paths:
+      - stagedir
+  tags:
+    - freebsd-runner
+
+create_package:
+  stage: package
+  script:
+    - echo "Listing files in $CI_PROJECT_DIR before packaging"
+    - ls -la $CI_PROJECT_DIR  # List files in the project directory before creating the package
+    - echo "Listing files in stagedir before creating package"
+    - ls -la $CI_PROJECT_DIR/stagedir  # Verify that stagedir contains files before running pkg create
+    - echo "Creating pfSense package"
+    - cd $CI_PROJECT_DIR  # Ensure we're in the correct directory
+    - pkg create -m metadir -r $CI_PROJECT_DIR/stagedir -p pkg-plist -o $CI_PROJECT_DIR  # Create package in the working directory
+    - echo "Package creation completed"
+  artifacts:
+    paths:
+      - $CI_PROJECT_DIR/*.pkg  # Save the generated .pkg file as an artifact
+  tags:
+    - freebsd-runner
