@@ -85,5 +85,5 @@ Here you'll find tabs to manage Tunnels, Peers, and the API.
 
 ![API Setup](README/03.png)
 
-**API Documentation:** [Link to the Confluence Page](https://confluence.qtsoftwareltd.com/x/xoBdBw) 
+Here is the [Link to the API Documentation](https://gitlab.qtsoftwareltd.com/qtphone/amneziawg/-/blob/main/API_Documentation.md) 
 
