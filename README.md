@@ -56,6 +56,70 @@ It is designed for teams or individuals deploying secure VPN services through pf
 4. Once installed, log into the pfSense Web UI to begin configuration.
 
 ---
+## Setting pfSense Firewall Rules  
+
+Follow these steps to configure pfSense firewall rules and NAT so that a Amnezia WireGuard VPN client can access the internet.
+
+---
+
+### 1. Allow AmneziaWG Traffic on the WAN Interface
+
+- **Navigate:** `Firewall > Rules > WAN`
+- **Add a new rule** with the following settings:
+  - **Action:** Pass
+  - **Interface:** WAN
+  - **Protocol:** TCP/UDP
+  - **Source:** any
+  - **Destination:** WAN address
+  - **Destination port:** 8081  (any but don't use 51820 because it is default WireGuard port)
+  - **Description:** Allow Amnezia WG traffic
+- **Save and apply changes.**
+
+> This rule allows incoming Amnezia WireGuard connection requests to reach pfSense.
+
+---
+
+### 2. Allow Amnezia WireGuard Traffic on It's Interface
+
+- **Navigate:** `Firewall > Rules > AmneziaWG` (the interface created after installing Amnezia Wireguard package)
+- **Add a rule** to allow traffic from the Amnezia WireGuard subnet:
+  - **Action:** Pass
+  - **Protocol:** any
+  - **Source:** AmneziaWG networks (e.g., 10.0.0.0/24)
+  - **Destination:** any
+  - **Description:** Allow Amnezia WG VPN traffic
+- **Save and apply changes.**
+
+> This enables VPN clients to send traffic through the Amnezia WG interface.
+
+---
+
+### 3. Configure Outbound NAT for the WireGuard Subnet
+
+- **Navigate:** `Firewall > NAT > Outbound`
+- **Change mode:** Hybrid Outbound NAT
+- **Add a new mapping:**
+  - **Interface:** WAN
+  - **Source:** AmneziaWG networks (e.g., 10.0.0.0/24)
+  - **Translation / target:** WAN address
+- **Save and apply changes.**
+
+> This NAT rule translates VPN client traffic so it can be routed to the internet via the WAN interface.
+
+---
+
+### 4. DNS Rule (If Clients Have No Internet Access)
+
+If pings work but there is no internet access, ensure DNS is allowed:
+
+- **Add a firewall rule** on the Amnezia WG interface:
+  - **Action:** Pass
+  - **Protocol:** UDP/TCP
+  - **Source:** any
+  - **Destination port:** 53
+  - **Description:** Allow DNS traffic
+
+> This allows DNS queries from VPN clients to pass through the firewall.
 
 ## Using the GUI
 
@@ -86,4 +150,5 @@ Here you'll find tabs to manage Tunnels, Peers, and the API.
 ![API Setup](README/03.png)
 
 Here is the [Link to the API Documentation](https://gitlab.qtsoftwareltd.com/qtphone/amneziawg/-/blob/main/API_Documentation.md) 
+
 
