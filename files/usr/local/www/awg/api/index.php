@@ -123,6 +123,7 @@ function parsePeer($peer)
 function parseTunnel($tunnel)
 {
     $peers = wg_tunnel_get_peers_config($tunnel['name']);
+    $server_public_ip = trim(shell_exec("curl -s ifconfig.me"));
     return [
         'name' => htmlspecialchars($tunnel['name']),
         'description' => htmlspecialchars($tunnel['descr']),
@@ -130,7 +131,21 @@ function parseTunnel($tunnel)
         'address' => array_map(function ($ip) {
             return "{$ip['address']}/{$ip['mask']}";
         }, $tunnel['addresses']['row'] ?? []),
+        'public_ip' => $server_public_ip,
         'listen_port' => htmlspecialchars($tunnel['listenport']),
+        
+        'config' => [
+            'jc' => $tunnel['jc'] ?? '',
+            'jmin' => $tunnel['jmin'] ?? '',
+            'jmax' => $tunnel['jmax'] ?? '',
+            's1' => $tunnel['s1'] ?? '',
+            's2' => $tunnel['s2'] ?? '',
+            'h1' => $tunnel['h1'] ?? '',
+            'h2' => $tunnel['h2'] ?? '',
+            'h3' => $tunnel['h3'] ?? '',
+            'h4' => $tunnel['h4'] ?? '',
+        ],
+        
         'peer_count' => count($peers),
         'enabled' => ($tunnel['enabled'] == 'yes'),
     ];
