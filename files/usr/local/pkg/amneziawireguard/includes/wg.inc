@@ -992,7 +992,8 @@ function wg_download_peer($peer_idx, $failure_redirect) {
 		// Generate the peer configuration file
 		wg_make_peer_conf_file($peer);
 
-		$conf_path = "{$wgg['conf_path']}/peer-{$peer['publickey']}.conf";
+		$sanitized_pubkey = preg_replace('/[^A-Za-z0-9_\-]/', '', $peer['publickey']);
+		$conf_path = "{$wgg['conf_path']}/peer-{$sanitized_pubkey}.conf";
 
 		$name = "peer-{$peer['publickey']}-{$stamp}.conf";
 
@@ -1016,12 +1017,18 @@ function wg_make_peer_conf_file($peer, $include_endpoint = false) {
 	// Init a new awgconfig object
 	$wc = new awgconfig($peer['publickey'], true);
 
-	$wc->set_path("{$wgg['conf_path']}/peer-{$peer['publickey']}.conf");
+	// Sanitize the public key to remove any special characters for a valid filename
+	$sanitized_pubkey = preg_replace('/[^A-Za-z0-9_\-]/', '', $peer['publickey']);
+	$wc->set_path("{$wgg['conf_path']}/peer-{$sanitized_pubkey}.conf");
 
 	$wc->initialize_file("Description: {$peer['descr']}");
 
 	// Process peer entry and PublicKey
-	$wc->set_interface_attr('PrivateKey', $peer['privatekey']);
+	if (!empty($peer['privatekey'])) {
+		$wc->set_interface_attr('PrivateKey', $peer['privatekey']);
+	}else {
+		$wc->set_interface_attr('PrivateKey', " ");
+	}
 
 	// Process PresharedKey
 	//$wc->set_interface_attr('PresharedKey', $peer['presharedkey']);

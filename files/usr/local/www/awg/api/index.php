@@ -426,14 +426,7 @@ function reloadAWG($interface)
         }
     }
 
-    // Apply firewall rules
-    $firewallStatus = applyFirewallRules($interface);
-
-    if ($firewallStatus !== 0) {
-        respond(500, '', "Failed to apply firewall rules");
-    } else {
-        $messages[] = "Firewall rules applied successfully.";
-    }
+   
 
     respond(200, $messages, "WireGuard service restarted and configurations applied successfully.");
 }
@@ -490,25 +483,28 @@ function addTunnel($tunnelData)
     $tunnels = config_get_path($tunnelsPath, []);
 
     // Validate required fields
-    $requiredFields = ['name', 'publickey', 'addresses'];
+    $requiredFields = ['name', 'descr','listenport', 'addresses'];
     foreach ($requiredFields as $field) {
         if (empty($tunnelData[$field])) {
             respond(400, '', "Missing required field: $field");
         }
     }
+    // Generate keypair using internal function
+    $keypair = wg_gen_keypair();
 
     // Prepare tunnel configuration
     $tunnelConfig = [
         'name' => $tunnelData['name'],
         'descr' => $tunnelData['descr'] ?? '',
-        'publickey' => $tunnelData['publickey'],
-        'privatekey' => $tunnelData['privatekey'] ?? '',
+        'publickey' => $keypair['pubkey'],
+        'privatekey' => $keypair['privkey'],
         'addresses' => [
             'row' => $tunnelData['addresses'],
         ],
         'listenport' => $tunnelData['listenport'] ?? '',
         'enabled' => $tunnelData['enabled'] ?? 'no',
     ];
+
 
     // Generate default values for amnezia wireguard and directly add them to $tunnelConfig
     $tunnelConfig['jc'] = rand(3, 127);
@@ -535,6 +531,9 @@ function addTunnel($tunnelData)
     // Resync the package
     wg_resync();
 
+    wg_apply_list_add('tunnels', $tunnelData['name']);
+
+    $tunnelConfig["privatekey"]=""; //Hiding the private key from the response
     respond(200, $tunnelConfig, "Tunnel added successfully");
 }
 
