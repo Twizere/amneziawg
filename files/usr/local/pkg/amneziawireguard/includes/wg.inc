@@ -666,7 +666,7 @@ function wg_tunnel_sync($tunnel_names, $restart_services = false, $resolve_endpo
 	$tunnels = array();
 
 	// We need to destroy any rogue tunnels not created by pfSense
-	wg_destroy_rogue_tunnels();
+	//wg_destroy_rogue_tunnels();
 
 	// Handle the "apply to all" case
 	if (is_null($tunnel_names)
@@ -702,7 +702,7 @@ function wg_tunnel_sync($tunnel_names, $restart_services = false, $resolve_endpo
 
 		// Handle any extra services that need restarting
 		if ($restart_services) {
-			wg_restart_extra_services();
+			//wg_restart_extra_services();   // removed because we don't use extra services and it was causing it to get stuck
 		}
 
 		// Handle resolving endpoints

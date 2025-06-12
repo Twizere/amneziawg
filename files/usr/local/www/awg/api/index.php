@@ -489,6 +489,14 @@ function addTunnel($tunnelData)
             respond(400, '', "Missing required field: $field");
         }
     }
+
+    foreach ($tunnels as $index => $existingTunnel) {
+        if ($existingTunnel['name'] === $tunnelData['name']) {
+            // Tunnel with this name already exists, do not replace
+            respond(400, '', "Tunnel with name {$tunnelData['name']} already exists");
+        }
+    }
+
     // Generate keypair using internal function
     $keypair = wg_gen_keypair();
 
@@ -502,7 +510,7 @@ function addTunnel($tunnelData)
             'row' => $tunnelData['addresses'],
         ],
         'listenport' => $tunnelData['listenport'] ?? '',
-        'enabled' => $tunnelData['enabled'] ?? 'no',
+        'enabled' => $tunnelData['enabled'] == 'yes',
     ];
 
 
@@ -524,15 +532,21 @@ function addTunnel($tunnelData)
     // Add the new tunnel to the configuration
     $tunnels[] = $tunnelConfig;
     config_set_path($tunnelsPath, $tunnels);
+    
 
     // Save the configuration
-    write_config("Added new tunnel with name {$tunnelData['name']}");
+    write_config("Added new tunnel with name {$tunnelConfig['name']}");
 
-    // Resync the package
-    wg_resync();
+    
 
     wg_apply_list_add('tunnels', $tunnelData['name']);
-
+    // Resync the package
+    wg_resync();
+    // $tunnels_to_apply = wg_apply_list_get('tunnels');
+    // $sync_status = wg_tunnel_sync($tunnels_to_apply, false, true);
+    // if ($sync_status['ret_code'] !== 0) {
+    //     respond(500, '', "Failed to sync tunnel: {$sync_status['message']}");
+    // }
     $tunnelConfig["privatekey"]=""; //Hiding the private key from the response
     respond(200, $tunnelConfig, "Tunnel added successfully");
 }
@@ -585,11 +599,12 @@ if ($input) {
             respond(200, reloadAWG($interface));
             break;
         case "test":
-            $interface = $input['interface'] ?? '';
-            if (!$interface)
-                respond(400, "Missing interface name");
-            $addresses = pfSense_getall_interface_addresses($interface);
-            respond(200, $addresses);
+           $running_ifs = wg_get_running_ifs();
+
+            $config_ifs = wg_get_configured_ifs();
+
+            $rogue_tunnels = array_diff($running_ifs, $config_ifs);
+            respond(200, $rogue_tunnels);
 
 
         default:

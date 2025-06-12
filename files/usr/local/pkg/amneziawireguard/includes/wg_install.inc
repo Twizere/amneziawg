@@ -194,7 +194,7 @@ function wg_defaults_install() {
 	$service_config = [
 		'name' => $wgg['service_name'],
 		'rcfile' => $wgg['service_name'],
-		'executable' => $wgg['php_wg'],
+		'executable' => 'php_wg',
 		'description' => 'Amnezia WireGuard',
 	];
 
