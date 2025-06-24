@@ -475,7 +475,7 @@ function getHttpVariables()
 
 }
 
-function addTunnel($tunnelData)
+function addTunnel($tunnelData,$overwrite = false)
 {
     global $config;
 
@@ -492,8 +492,17 @@ function addTunnel($tunnelData)
 
     foreach ($tunnels as $index => $existingTunnel) {
         if ($existingTunnel['name'] === $tunnelData['name']) {
-            // Tunnel with this name already exists, do not replace
-            respond(400, '', "Tunnel with name {$tunnelData['name']} already exists");
+            if ($overwrite) {
+                // If overwrite is true, update the existing tunnel
+                $editData = $tunnelData;
+                // Ensure required fields are present
+                $editData['name'] = $existingTunnel['name'];
+                editTunnel($editData);
+                // editTunnel will exit via respond()
+            } else {
+                // Tunnel with this name already exists, do not replace
+                respond(400, '', "Tunnel with name {$tunnelData['name']} already exists");
+            }
         }
     }
 
@@ -510,7 +519,7 @@ function addTunnel($tunnelData)
             'row' => $tunnelData['addresses'],
         ],
         'listenport' => $tunnelData['listenport'] ?? '',
-        'enabled' => $tunnelData['enabled'] == 'yes',
+        'enabled' => $tunnelData['enabled']??'yes','no'
     ];
 
 
@@ -551,6 +560,57 @@ function addTunnel($tunnelData)
     respond(200, $tunnelConfig, "Tunnel added successfully");
 }
 
+function editTunnel($tunnelData)
+{
+    global $config;
+
+    $tunnelsPath = AMNEZIAWG_BASE_PATH . '/tunnels/item';
+    $tunnels = config_get_path($tunnelsPath, []);
+
+    // Validate required fields
+    $requiredFields = ['name', 'descr', 'listenport', 'addresses'];
+    foreach ($requiredFields as $field) {
+        if (empty($tunnelData[$field])) {
+            respond(400, '', "Missing required field: $field");
+        }
+    }
+
+    $found = false;
+    foreach ($tunnels as $index => $existingTunnel) {
+        if ($existingTunnel['name'] === $tunnelData['name']) {
+            $found = true;
+
+            // Preserve keys that should not be overwritten unless provided
+            $tunnels[$index]['descr'] = $tunnelData['descr'];
+            $tunnels[$index]['listenport'] = $tunnelData['listenport'];
+            $tunnels[$index]['addresses'] = ['row' => $tunnelData['addresses']];
+            $tunnels[$index]['enabled'] = $tunnelData['enabled'] ?? $existingTunnel['enabled'];
+
+            // Optionally update Amnezia-specific fields if provided
+            foreach (['jc', 'jmin', 'jmax', 's1', 's2', 'h1', 'h2', 'h3', 'h4'] as $field) {
+                if (isset($tunnelData[$field])) {
+                    $tunnels[$index][$field] = $tunnelData[$field];
+                }
+            }
+
+            // Do not allow changing keys or name, do not expose privatekey
+            $tunnelConfig = $tunnels[$index];
+   
+
+            config_set_path($tunnelsPath, $tunnels);
+            write_config("Edited tunnel with name {$tunnelData['name']}");
+            wg_apply_list_add('tunnels', $tunnelData['name']);
+                     $tunnelConfig['privatekey'] = ""; // Hide private key
+            wg_resync();
+            respond(200, $tunnelConfig, "Tunnel edited successfully");
+        }
+    }
+
+    if (!$found) {
+        respond(404, '', "Tunnel with name {$tunnelData['name']} not found");
+    }
+}
+
 $uri = $_SERVER['REQUEST_URI'];
 $apiKey = $_SERVER['HTTP_X_API_KEY'];
 $iface = $_SERVER['X-INTERFACE-NAME'];
@@ -586,10 +646,12 @@ if ($input) {
             break;
         case "add_tunnel":
             $tunnelData = $input['tunnel'] ?? [];
+            $overwrite = $input['overwrite'] ?? false;
+            
             if (empty($tunnelData)) {
                 respond(400, '', "Invalid or missing tunnel data");
             }
-            addTunnel($tunnelData);
+            addTunnel($tunnelData, $overwrite);
             break;
 
         case "reload":
@@ -599,12 +661,8 @@ if ($input) {
             respond(200, reloadAWG($interface));
             break;
         case "test":
-           $running_ifs = wg_get_running_ifs();
-
-            $config_ifs = wg_get_configured_ifs();
-
-            $rogue_tunnels = array_diff($running_ifs, $config_ifs);
-            respond(200, $rogue_tunnels);
+            wg_destroy_rogue_tunnels();
+            respond(200, "Rogue tunnels destroyed successfully");
 
 
         default:
