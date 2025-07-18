@@ -519,7 +519,7 @@ function addTunnel($tunnelData,$overwrite = false)
             'row' => $tunnelData['addresses'],
         ],
         'listenport' => $tunnelData['listenport'] ?? '',
-        'enabled' => $tunnelData['enabled']??'yes','no'
+        'enabled' => isset($tunnelData['enabled']) && $tunnelData['enabled'] == 'yes'  ? 'yes' : 'no'
     ];
 
 
@@ -542,7 +542,7 @@ function addTunnel($tunnelData,$overwrite = false)
     $tunnels[] = $tunnelConfig;
     config_set_path($tunnelsPath, $tunnels);
     
-
+    
     // Save the configuration
     write_config("Added new tunnel with name {$tunnelConfig['name']}");
 
