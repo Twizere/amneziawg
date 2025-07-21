@@ -117,7 +117,7 @@ function parsePeer($peer)
             return "{$ip['address']}/{$ip['mask']}";
         }, $peer['allowedips']['row'] ?? []),
         'endpoint' => htmlspecialchars(wg_format_endpoint(false, $peer)),
-        'enabled' => ($peer['enabled'] == 'yes'),
+        'enabled' => !empty($peer['enabled']) && strtolower(trim($peer['enabled'])) === 'yes',
     ];
 }
 function parseTunnel($tunnel)
@@ -147,7 +147,7 @@ function parseTunnel($tunnel)
         ],
         
         'peer_count' => count($peers),
-        'enabled' => ($tunnel['enabled'] == 'yes'),
+        'enabled' => !empty($tunnel['enabled']) && strtolower(trim($tunnel['enabled'])) === 'yes',
     ];
 }
 
@@ -557,7 +557,10 @@ function addTunnel($tunnelData,$overwrite = false)
     //     respond(500, '', "Failed to sync tunnel: {$sync_status['message']}");
     // }
     $tunnelConfig["privatekey"]=""; //Hiding the private key from the response
-    respond(200, $tunnelConfig, "Tunnel added successfully");
+    
+    // Use parseTunnel to ensure consistent formatting including boolean enabled field
+    $formattedTunnelConfig = parseTunnel($tunnelConfig);
+    respond(200, $formattedTunnelConfig, "Tunnel added successfully");
 }
 
 function editTunnel($tunnelData)
@@ -600,9 +603,12 @@ function editTunnel($tunnelData)
             config_set_path($tunnelsPath, $tunnels);
             write_config("Edited tunnel with name {$tunnelData['name']}");
             wg_apply_list_add('tunnels', $tunnelData['name']);
-                     $tunnelConfig['privatekey'] = ""; // Hide private key
+            $tunnelConfig['privatekey'] = ""; // Hide private key
             wg_resync();
-            respond(200, $tunnelConfig, "Tunnel edited successfully");
+            
+            // Use parseTunnel to ensure consistent formatting including boolean enabled field
+            $formattedTunnelConfig = parseTunnel($tunnelConfig);
+            respond(200, $formattedTunnelConfig, "Tunnel edited successfully");
         }
     }
 
