@@ -208,7 +208,7 @@ function syncPeers($peers, $tunnel)
 
         $newPeers[] = [
             'id' => $existingPeersMap[$peer['public_key']]['id'] ?? wg_generate_uuid(),
-            'enabled' => 'yes',
+            'enabled' => isset($peer['enabled']) && $peer['enabled'] ? 'yes' : 'no',
             'tun' => $tunnel,
             'descr' => $peer['description'],
             'publickey' => $peer['public_key'],
@@ -235,7 +235,7 @@ function syncPeers($peers, $tunnel)
         $sync_status = wg_tunnel_sync($tunnels_to_apply, true, true);
     }
 
-    respond(200, $newPeers, "Peers synced successfully {$sync_status}");
+    respond(200, listPeers(), "Peers synced successfully {$sync_status}");
 }
 
 function listTunnels()
@@ -276,7 +276,7 @@ function addPeer($peerData)
     // Prepare peer configuration
     $peerConfig = [
         'id' => $peerData['id'],
-        'enabled' => $peerData['enabled'] ?? 'no',
+        'enabled' => isset($peerData['enabled']) && $peerData['enabled'] ? 'yes' : 'no',
         'tun' => $peerData['tun'],
         'descr' => $peerData['descr'] ?? '',
         'endpoint' => $peerData['endpoint'] ?? '',
@@ -519,7 +519,7 @@ function addTunnel($tunnelData,$overwrite = false)
             'row' => $tunnelData['addresses'],
         ],
         'listenport' => $tunnelData['listenport'] ?? '',
-        'enabled' => isset($tunnelData['enabled']) && $tunnelData['enabled'] == 'yes'  ? 'yes' : 'no'
+        'enabled' => isset($tunnelData['enabled']) && $tunnelData['enabled'] ? 'yes' : 'no'
     ];
 
 
@@ -584,7 +584,7 @@ function editTunnel($tunnelData)
             $tunnels[$index]['descr'] = $tunnelData['descr'];
             $tunnels[$index]['listenport'] = $tunnelData['listenport'];
             $tunnels[$index]['addresses'] = ['row' => $tunnelData['addresses']];
-            $tunnels[$index]['enabled'] = $tunnelData['enabled'] ?? $existingTunnel['enabled'];
+            $tunnels[$index]['enabled'] = isset($tunnelData['enabled']) && $tunnelData['enabled'] ? 'yes' : 'no';
 
             // Optionally update Amnezia-specific fields if provided
             foreach (['jc', 'jmin', 'jmax', 's1', 's2', 'h1', 'h2', 'h3', 'h4'] as $field) {
