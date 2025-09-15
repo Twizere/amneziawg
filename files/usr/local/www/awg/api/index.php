@@ -167,13 +167,19 @@ function listPeers()
     }
 }
 
-function syncPeers($peers, $tunnel)
+function syncPeers($peers, $tunnel = null)
 {
     global $config;
 
     $peersPath = AMNEZIAWG_BASE_PATH . '/peers/item';
     $existingPeers = config_get_path($peersPath, []);
 
+    // If tunnel is null or 'all', sync to all tunnels
+    if ($tunnel === null || $tunnel === 'all') {
+        return syncPeersToAllTunnels($peers);
+    }
+
+    // Original single tunnel sync logic
     // Create a map of existing peers by public key for quick lookup
     $existingPeersMap = [];
     foreach ($existingPeers as $peer) {
@@ -236,6 +242,94 @@ function syncPeers($peers, $tunnel)
     }
 
     respond(200, listPeers(), "Peers synced successfully {$sync_status}");
+}
+
+function syncPeersToAllTunnels($peers)
+{
+    global $config;
+
+    $peersPath = AMNEZIAWG_BASE_PATH . '/peers/item';
+    $tunnelsPath = AMNEZIAWG_BASE_PATH . '/tunnels/item';
+    
+    $existingPeers = config_get_path($peersPath, []);
+    $tunnels = config_get_path($tunnelsPath, []);
+
+    if (empty($tunnels)) {
+        respond(400, '', "No tunnels found to sync peers to");
+    }
+
+    // Create a map of existing peers by public key for quick lookup
+    $existingPeersMap = [];
+    foreach ($existingPeers as $peer) {
+        $existingPeersMap[$peer['publickey']] = $peer;
+    }
+
+    // Clear all existing peers (we'll rebuild the entire list)
+    $newPeers = [];
+
+    // For each tunnel, add all the provided peers
+    foreach ($tunnels as $tunnel) {
+        $tunnelName = $tunnel['name'];
+        
+        foreach ($peers as $peer) {
+            if (empty($peer['public_key']) || empty($peer['description']) || empty($peer['update_date'])) {
+                respond(400, '', "Invalid peer data: public_key, description, and update_date are required");
+            }
+
+            $allowedIps = [];
+            if (!empty($peer['allowed_ips']) && is_array($peer['allowed_ips'])) {
+                foreach ($peer['allowed_ips'] as $ip) {
+                    if (strpos($ip, '/') === false) {
+                        respond(400, '', "Invalid allowed IP format: {$ip}");
+                    }
+                    $allowedIps[] = ['address' => explode('/', $ip)[0], 'mask' => explode('/', $ip)[1]];
+                }
+            }
+
+            // Generate a unique ID for each peer-tunnel combination
+            $peerTunnelKey = $peer['public_key'] . '_' . $tunnelName;
+            $existingPeerForTunnel = null;
+            
+            // Look for existing peer for this specific tunnel
+            foreach ($existingPeers as $existingPeer) {
+                if ($existingPeer['publickey'] === $peer['public_key'] && $existingPeer['tun'] === $tunnelName) {
+                    $existingPeerForTunnel = $existingPeer;
+                    break;
+                }
+            }
+
+            $newPeers[] = [
+                'id' => $existingPeerForTunnel['id'] ?? wg_generate_uuid(),
+                'enabled' => isset($peer['enabled']) && $peer['enabled'] ? 'yes' : 'no',
+                'tun' => $tunnelName,
+                'descr' => $peer['description'],
+                'publickey' => $peer['public_key'],
+                'privatekey' => $existingPeerForTunnel['privatekey'] ?? $existingPeersMap[$peer['public_key']]['privatekey'] ?? '',
+                'allowedips' => ['row' => $allowedIps],
+                'endpoint' => $existingPeerForTunnel['endpoint'] ?? '',
+                'port' => $existingPeerForTunnel['port'] ?? $existingPeersMap[$peer['public_key']]['port'] ?? '',
+                'persistentkeepalive' => $existingPeerForTunnel['persistentkeepalive'] ?? $existingPeersMap[$peer['public_key']]['persistentkeepalive'] ?? '30',
+                'presharedkey' => $existingPeerForTunnel['presharedkey'] ?? $existingPeersMap[$peer['public_key']]['presharedkey'] ?? '',
+            ];
+        }
+    }
+
+    // Replace the peers configuration with the updated list
+    config_set_path($peersPath, $newPeers);
+
+    // Save the configuration
+    write_config("Synced peers to all tunnels");
+
+    // Resync the package
+    wg_resync();
+
+    if (wg_is_service_running() && wg_is_service_enabled()) {
+        $tunnels_to_apply = wg_apply_list_get('tunnels');
+        $sync_status = wg_tunnel_sync($tunnels_to_apply, true, true);
+    }
+
+    $tunnelNames = array_map(function($t) { return $t['name']; }, $tunnels);
+    respond(200, listPeers(), "Peers synced successfully to all tunnels: " . implode(', ', $tunnelNames) . " {$sync_status}");
 }
 
 function listTunnels()
@@ -638,17 +732,25 @@ if ($input) {
             break;
         case "sync_peers":
             $peers = $input['peers'] ?? [];
-            $tunnel = $input['tunnel'] ?? '';
+            $tunnel = $input['tunnel'] ?? 'all'; // Default to 'all' if not specified
 
             if (empty($peers) || !is_array($peers)) {
-            respond(400, '', "Invalid or missing peers data");
+                respond(400, '', "Invalid or missing peers data");
             }
 
-            if (empty($tunnel)) {
-            respond(400, '', "Missing tunnel name");
-            }
-
+            // Allow syncing to all tunnels or a specific tunnel
+            // If tunnel is 'all' or empty, sync to all tunnels
             syncPeers($peers, $tunnel);
+            break;
+        case "sync_peers_all":
+            $peers = $input['peers'] ?? [];
+
+            if (empty($peers) || !is_array($peers)) {
+                respond(400, '', "Invalid or missing peers data");
+            }
+
+            // Explicitly sync to all tunnels
+            syncPeers($peers, 'all');
             break;
         case "add_tunnel":
             $tunnelData = $input['tunnel'] ?? [];
