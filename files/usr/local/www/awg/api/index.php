@@ -711,6 +711,150 @@ function editTunnel($tunnelData)
     }
 }
 
+function syncTunnels($tunnels)
+{
+    global $config;
+
+    $tunnelsPath = AMNEZIAWG_BASE_PATH . '/tunnels/item';
+    $peersPath = AMNEZIAWG_BASE_PATH . '/peers/item';
+    
+    $existingTunnels = config_get_path($tunnelsPath, []);
+    $existingPeers = config_get_path($peersPath, []);
+
+    // Create a map of existing tunnels by name for quick lookup
+    $existingTunnelsMap = [];
+    foreach ($existingTunnels as $tunnel) {
+        $existingTunnelsMap[$tunnel['name']] = $tunnel;
+    }
+
+    // Get list of tunnel names that should exist after sync
+    $newTunnelNames = array_map(function($tunnel) { return $tunnel['name']; }, $tunnels);
+    
+    // Find tunnels that need to be deleted (exist but not in new list)
+    $tunnelsToDelete = [];
+    foreach ($existingTunnels as $tunnel) {
+        if (!in_array($tunnel['name'], $newTunnelNames)) {
+            $tunnelsToDelete[] = $tunnel['name'];
+        }
+    }
+
+    // Remove peers for deleted tunnels
+    if (!empty($tunnelsToDelete)) {
+        $filteredPeers = [];
+        foreach ($existingPeers as $peer) {
+            if (!in_array($peer['tun'], $tunnelsToDelete)) {
+                $filteredPeers[] = $peer;
+            }
+        }
+        config_set_path($peersPath, $filteredPeers);
+    }
+
+    // Prepare the new list of tunnels
+    $newTunnels = [];
+
+    foreach ($tunnels as $tunnel) {
+        // Handle both input formats: API format (description, listen_port, address) and internal format (descr, listenport, addresses)
+        $name = $tunnel['name'] ?? '';
+        $description = $tunnel['description'] ?? $tunnel['descr'] ?? '';
+        $listenport = $tunnel['listen_port'] ?? $tunnel['listenport'] ?? '';
+        
+        // Handle address format conversion
+        $addresses = [];
+        if (!empty($tunnel['address']) && is_array($tunnel['address'])) {
+            // Convert from "IP/MASK" format to internal format
+            foreach ($tunnel['address'] as $addr) {
+                if (strpos($addr, '/') !== false) {
+                    $parts = explode('/', $addr);
+                    $addresses[] = ['address' => $parts[0], 'mask' => $parts[1]];
+                }
+            }
+        } elseif (!empty($tunnel['addresses'])) {
+            $addresses = $tunnel['addresses'];
+        }
+
+        if (empty($name) || empty($description) || empty($listenport) || empty($addresses)) {
+            respond(400, '', "Invalid tunnel data: name, description, listen_port, and address are required");
+        }
+
+        $existingTunnel = $existingTunnelsMap[$name] ?? null;
+
+        // Generate keypair for new tunnels or preserve existing keys
+        if ($existingTunnel) {
+            $publickey = $existingTunnel['publickey'];
+            $privatekey = $existingTunnel['privatekey'];
+        } else {
+            $keypair = wg_gen_keypair();
+            $publickey = $keypair['pubkey'];
+            $privatekey = $keypair['privkey'];
+        }
+
+        // Prepare tunnel configuration
+        $tunnelConfig = [
+            'name' => $name,
+            'descr' => $description,
+            'publickey' => $publickey,
+            'privatekey' => $privatekey,
+            'addresses' => [
+                'row' => $addresses,
+            ],
+            'listenport' => $listenport,
+            'enabled' => isset($tunnel['enabled']) && $tunnel['enabled'] ? 'yes' : 'no'
+        ];
+
+        // Handle Amnezia-specific configuration from config object if provided
+        $config_data = $tunnel['config'] ?? [];
+        
+        if ($existingTunnel) {
+            // Preserve existing Amnezia config or use provided values
+            $tunnelConfig['jc'] = $config_data['jc'] ?? $existingTunnel['jc'] ?? rand(3, 127);
+            $tunnelConfig['jmin'] = $config_data['jmin'] ?? $existingTunnel['jmin'] ?? rand(10, 699);
+            $tunnelConfig['jmax'] = $config_data['jmax'] ?? $existingTunnel['jmax'] ?? rand($tunnelConfig['jmin'] + 1, $tunnelConfig['jmin'] + 570);
+            $tunnelConfig['s1'] = $config_data['s1'] ?? $existingTunnel['s1'] ?? rand(3, 127);
+            $tunnelConfig['s2'] = $config_data['s2'] ?? $existingTunnel['s2'] ?? rand(3, 127);
+            $tunnelConfig['h1'] = $config_data['h1'] ?? $existingTunnel['h1'] ?? rand(0x10000011, 0x7FFFFF00);
+            $tunnelConfig['h2'] = $config_data['h2'] ?? $existingTunnel['h2'] ?? rand(0x10000011, 0x7FFFFF00);
+            $tunnelConfig['h3'] = $config_data['h3'] ?? $existingTunnel['h3'] ?? rand(0x10000011, 0x7FFFFF00);
+            $tunnelConfig['h4'] = $config_data['h4'] ?? $existingTunnel['h4'] ?? rand(0x10000011, 0x7FFFFF00);
+        } else {
+            // Generate default values for new tunnels or use provided config
+            $tunnelConfig['jc'] = $config_data['jc'] ?? rand(3, 127);
+            $jmin = $config_data['jmin'] ?? rand(10, 699);
+            $tunnelConfig['jmin'] = $jmin;
+            $tunnelConfig['jmax'] = $config_data['jmax'] ?? rand($jmin + 1, $jmin + 570);
+            $tunnelConfig['s1'] = $config_data['s1'] ?? rand(3, 127);
+            $tunnelConfig['s2'] = $config_data['s2'] ?? rand(3, 127);
+            $tunnelConfig['h1'] = $config_data['h1'] ?? rand(0x10000011, 0x7FFFFF00);
+            $tunnelConfig['h2'] = $config_data['h2'] ?? rand(0x10000011, 0x7FFFFF00);
+            $tunnelConfig['h3'] = $config_data['h3'] ?? rand(0x10000011, 0x7FFFFF00);
+            $tunnelConfig['h4'] = $config_data['h4'] ?? rand(0x10000011, 0x7FFFFF00);
+        }
+
+        $newTunnels[] = $tunnelConfig;
+    }
+
+    // Replace the tunnels configuration with the updated list
+    config_set_path($tunnelsPath, $newTunnels);
+
+    // Save the configuration
+    write_config("Synced tunnels - added/updated: " . implode(', ', $newTunnelNames) . 
+                 (!empty($tunnelsToDelete) ? ", deleted: " . implode(', ', $tunnelsToDelete) : ""));
+
+    // Add all tunnels to apply list
+    foreach ($newTunnelNames as $tunnelName) {
+        wg_apply_list_add('tunnels', $tunnelName);
+    }
+
+    // Resync the package
+    wg_resync();
+
+    $responseMessage = "Tunnels synced successfully";
+    if (!empty($tunnelsToDelete)) {
+        $responseMessage .= " (deleted tunnels: " . implode(', ', $tunnelsToDelete) . ")";
+    }
+
+    respond(200, listTunnels(), $responseMessage);
+}
+
 $uri = $_SERVER['REQUEST_URI'];
 $apiKey = $_SERVER['HTTP_X_API_KEY'];
 $iface = $_SERVER['X-INTERFACE-NAME'];
@@ -751,6 +895,15 @@ if ($input) {
 
             // Explicitly sync to all tunnels
             syncPeers($peers, 'all');
+            break;
+        case "sync_tunnels":
+            $tunnels = $input['tunnels'] ?? [];
+
+            if (empty($tunnels) || !is_array($tunnels)) {
+                respond(400, '', "Invalid or missing tunnels data");
+            }
+
+            syncTunnels($tunnels);
             break;
         case "add_tunnel":
             $tunnelData = $input['tunnel'] ?? [];
