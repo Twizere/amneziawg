@@ -551,9 +551,14 @@ function addTunnel($tunnelData, $overwrite = false)
         }
     }
 
-    // BUG FIX: Validate tunnel name format
+    // BUG FIX: Validate tunnel name format and length
     if (!preg_match('/^[a-zA-Z0-9_-]+$/', $tunnelData['name'])) {
         respond(400, '', "Invalid tunnel name format. Use only alphanumeric characters, hyphens, and underscores.");
+    }
+
+    // Linux kernel interface name limit is 15 characters
+    if (strlen($tunnelData['name']) > 15) {
+        respond(400, '', "Tunnel name exceeds 15 character limit. Current length: " . strlen($tunnelData['name']));
     }
 
     // BUG FIX: Validate listen port
@@ -670,6 +675,16 @@ function editTunnel($tunnelData)
         }
     }
 
+    // Validate tunnel name format and length
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $tunnelData['name'])) {
+        respond(400, '', "Invalid tunnel name format. Use only alphanumeric characters, hyphens, and underscores.");
+    }
+
+    // Linux kernel interface name limit is 15 characters
+    if (strlen($tunnelData['name']) > 15) {
+        respond(400, '', "Tunnel name exceeds 15 character limit. Current length: " . strlen($tunnelData['name']));
+    }
+
     $found = false;
     foreach ($tunnels as $index => $existingTunnel) {
         if ($existingTunnel['name'] === $tunnelData['name']) {
@@ -772,6 +787,16 @@ function syncTunnels($tunnels)
 
         if (empty($name) || empty($description) || empty($listenport) || empty($addresses)) {
             respond(400, '', "Invalid tunnel data: name, description, listen_port, and address are required");
+        }
+
+        // Validate tunnel name format and length
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
+            respond(400, '', "Invalid tunnel name format for '{$name}'. Use only alphanumeric characters, hyphens, and underscores.");
+        }
+
+        // Linux kernel interface name limit is 15 characters
+        if (strlen($name) > 15) {
+            respond(400, '', "Tunnel name '{$name}' exceeds 15 character limit. Current length: " . strlen($name));
         }
 
         $existingTunnel = $existingTunnelsMap[$name] ?? null;
