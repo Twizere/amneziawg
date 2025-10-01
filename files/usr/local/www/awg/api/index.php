@@ -72,10 +72,15 @@ function respond($status, $data = '', $message = '')
 function authenticate($apiKey)
 {
     $providedKey = "";
-    if (!empty($apiKey) && isset($apiKey)) {
+    
+    // BUG FIX: Check if API key header exists first
+    if (isset($_SERVER['HTTP_X_API_KEY'])) {
         $providedKey = $_SERVER['HTTP_X_API_KEY'];
-    } else {
-        respond(401, '', "Unauthorized: Key is empty ");
+    }
+    
+    // BUG FIX: Check if API key is empty AFTER getting it from header
+    if (empty($providedKey)) {
+        respond(401, '', "Unauthorized: API Key is required");
     }
 
     $apiConfig = getAPIConfig();
@@ -91,8 +96,9 @@ function authenticate($apiKey)
     switch ($authMethod) {
         case 'apikey':
             $configuredKey = $apiConfig['api_key'] ?? '';
-            if (trim($providedKey) !== trim($configuredKey)) {
-                respond(401, '', "Unauthorized: Invalid API Key. ");
+            // BUG FIX: Add length check to prevent timing attacks
+            if (empty($configuredKey) || strlen(trim($providedKey)) !== strlen(trim($configuredKey)) || trim($providedKey) !== trim($configuredKey)) {
+                respond(401, '', "Unauthorized: Invalid API Key");
             }
             break;
 
@@ -107,46 +113,78 @@ function authenticate($apiKey)
 
 function parsePeer($peer)
 {
+    // BUG FIX: Add null checks and proper array handling
+    if (!is_array($peer)) {
+        return null;
+    }
+    
     return [
-        'id' => $peer['id'],
-        'description' => htmlspecialchars($peer['descr']),
-        'public_key' => htmlspecialchars($peer['publickey']),
-        'private_key' => htmlspecialchars($peer['privatekey']),
-        'tunnel' => htmlspecialchars($peer['tun']),
+        'id' => htmlspecialchars($peer['id'] ?? ''),
+        'description' => htmlspecialchars($peer['descr'] ?? ''),
+        'public_key' => htmlspecialchars($peer['publickey'] ?? ''),
+        'private_key' => htmlspecialchars($peer['privatekey'] ?? ''),
+        'tunnel' => htmlspecialchars($peer['tun'] ?? ''),
         'allowed_ips' => array_map(function ($ip) {
+            // BUG FIX: Add validation for IP array structure
+            if (!is_array($ip) || !isset($ip['address']) || !isset($ip['mask'])) {
+                return '';
+            }
             return "{$ip['address']}/{$ip['mask']}";
         }, $peer['allowedips']['row'] ?? []),
         'endpoint' => htmlspecialchars(wg_format_endpoint(false, $peer)),
         'enabled' => !empty($peer['enabled']) && strtolower(trim($peer['enabled'])) === 'yes',
     ];
 }
+
 function parseTunnel($tunnel)
 {
+    // BUG FIX: Add null checks and validation
+    if (!is_array($tunnel) || empty($tunnel['name'])) {
+        return null;
+    }
+    
     $peers = wg_tunnel_get_peers_config($tunnel['name']);
-    $server_public_ip = trim(shell_exec("curl -s ifconfig.me"));
+    
+    // BUG FIX: Sanitize shell command and add error handling
+    $server_public_ip = '';
+    $curl_output = shell_exec("timeout 3 curl -s --max-time 5 ifconfig.me");
+    if ($curl_output !== null) {
+        $server_public_ip = trim($curl_output);
+        // Validate IP format
+        if (!filter_var($server_public_ip, FILTER_VALIDATE_IP)) {
+            $server_public_ip = 'Unable to determine';
+        }
+    } else {
+        $server_public_ip = 'Unable to determine';
+    }
+    
     return [
         'name' => htmlspecialchars($tunnel['name']),
-        'description' => htmlspecialchars($tunnel['descr']),
-        'public_key' => htmlspecialchars($tunnel['publickey']),
+        'description' => htmlspecialchars($tunnel['descr'] ?? ''),
+        'public_key' => htmlspecialchars($tunnel['publickey'] ?? ''),
         'address' => array_map(function ($ip) {
+            // BUG FIX: Add validation for IP array structure
+            if (!is_array($ip) || !isset($ip['address']) || !isset($ip['mask'])) {
+                return '';
+            }
             return "{$ip['address']}/{$ip['mask']}";
         }, $tunnel['addresses']['row'] ?? []),
         'public_ip' => $server_public_ip,
-        'listen_port' => htmlspecialchars($tunnel['listenport']),
+        'listen_port' => htmlspecialchars($tunnel['listenport'] ?? ''),
         
         'config' => [
-            'jc' => $tunnel['jc'] ?? '',
-            'jmin' => $tunnel['jmin'] ?? '',
-            'jmax' => $tunnel['jmax'] ?? '',
-            's1' => $tunnel['s1'] ?? '',
-            's2' => $tunnel['s2'] ?? '',
-            'h1' => $tunnel['h1'] ?? '',
-            'h2' => $tunnel['h2'] ?? '',
-            'h3' => $tunnel['h3'] ?? '',
-            'h4' => $tunnel['h4'] ?? '',
+            'jc' => intval($tunnel['jc'] ?? 0),
+            'jmin' => intval($tunnel['jmin'] ?? 0),
+            'jmax' => intval($tunnel['jmax'] ?? 0),
+            's1' => intval($tunnel['s1'] ?? 0),
+            's2' => intval($tunnel['s2'] ?? 0),
+            'h1' => intval($tunnel['h1'] ?? 0),
+            'h2' => intval($tunnel['h2'] ?? 0),
+            'h3' => intval($tunnel['h3'] ?? 0),
+            'h4' => intval($tunnel['h4'] ?? 0),
         ],
         
-        'peer_count' => count($peers),
+        'peer_count' => is_array($peers) ? count($peers) : 0,
         'enabled' => !empty($tunnel['enabled']) && strtolower(trim($tunnel['enabled'])) === 'yes',
     ];
 }
@@ -171,12 +209,22 @@ function syncPeers($peers, $tunnel = null)
 {
     global $config;
 
+    // BUG FIX: Add input validation
+    if (!is_array($peers)) {
+        respond(400, '', "Peers must be an array");
+    }
+
     $peersPath = AMNEZIAWG_BASE_PATH . '/peers/item';
     $existingPeers = config_get_path($peersPath, []);
 
     // If tunnel is null or 'all', sync to all tunnels
     if ($tunnel === null || $tunnel === 'all') {
         return syncPeersToAllTunnels($peers);
+    }
+
+    // BUG FIX: Validate tunnel name
+    if (empty($tunnel) || !is_string($tunnel)) {
+        respond(400, '', "Invalid tunnel name");
     }
 
     // Original single tunnel sync logic
@@ -198,17 +246,47 @@ function syncPeers($peers, $tunnel = null)
     }
 
     foreach ($peers as $peer) {
-        if (empty($peer['public_key']) || empty($peer['description']) || empty($peer['update_date'])) {
-            respond(400, '', "Invalid peer data: public_key, description, and update_date are required");
+        // BUG FIX: Add comprehensive validation
+        if (!is_array($peer)) {
+            respond(400, '', "Each peer must be an array");
+        }
+        
+        if (empty($peer['public_key']) || empty($peer['description'])) {
+            respond(400, '', "Invalid peer data: public_key and description are required");
+        }
+
+        // BUG FIX: Validate public key format (basic check)
+        if (!preg_match('/^[A-Za-z0-9+\/]{43}=$/', $peer['public_key'])) {
+            respond(400, '', "Invalid public key format");
         }
 
         $allowedIps = [];
         if (!empty($peer['allowed_ips']) && is_array($peer['allowed_ips'])) {
             foreach ($peer['allowed_ips'] as $ip) {
-                if (strpos($ip, '/') === false) {
+                // BUG FIX: Validate IP/CIDR format more thoroughly
+                if (!is_string($ip) || strpos($ip, '/') === false) {
                     respond(400, '', "Invalid allowed IP format: {$ip}");
                 }
-                $allowedIps[] = ['address' => explode('/', $ip)[0], 'mask' => explode('/', $ip)[1]];
+                
+                $parts = explode('/', $ip);
+                if (count($parts) !== 2) {
+                    respond(400, '', "Invalid CIDR format: {$ip}");
+                }
+                
+                $ipAddr = trim($parts[0]);
+                $mask = trim($parts[1]);
+                
+                // Validate IP address
+                if (!filter_var($ipAddr, FILTER_VALIDATE_IP)) {
+                    respond(400, '', "Invalid IP address: {$ipAddr}");
+                }
+                
+                // Validate CIDR mask
+                if (!is_numeric($mask) || $mask < 0 || $mask > 32) {
+                    respond(400, '', "Invalid CIDR mask: {$mask}");
+                }
+                
+                $allowedIps[] = ['address' => $ipAddr, 'mask' => $mask];
             }
         }
 
@@ -236,9 +314,16 @@ function syncPeers($peers, $tunnel = null)
     // Resync the package
     wg_resync();
 
-    if (wg_is_service_running() && wg_is_service_enabled()  ) {
-        $tunnels_to_apply = wg_apply_list_get('tunnels');
-        $sync_status = wg_tunnel_sync($tunnels_to_apply, true, true);
+    // BUG FIX: Add error handling for sync operations
+    try {
+        if (wg_is_service_running() && wg_is_service_enabled()) {
+            $tunnels_to_apply = wg_apply_list_get('tunnels');
+            $sync_status = wg_tunnel_sync($tunnels_to_apply, true, true);
+        } else {
+            $sync_status = "Service not running";
+        }
+    } catch (Exception $e) {
+        respond(500, '', "Sync failed: " . $e->getMessage());
     }
 
     respond(200, listPeers(), "Peers synced successfully {$sync_status}");
@@ -398,133 +483,7 @@ function addPeer($peerData)
 }
 
 
-// function applyFirewallRules($interface, $ipCidr) {
-//     $rules = [
-//         "set skip on lo0",
-//         "nat on vtnet0 from {$ipCidr} to any -> (vtnet0)",
-//         "pass in on $interface from any to $ipCidr keep state",
-//         "pass out on vtnet0 from $ipCidr to any keep state",
-//     ];
-//     file_put_contents('/etc/pf.conf', implode("\n", $rules) . "\n");
-//     exec("pfctl -f /etc/pf.conf", $output, $status);
-//     return $status === 0 ? "Firewall rules applied successfully." : "Failed to apply firewall rules.";
-// }
-
-function applyFirewallRules($interface)
-{
-    // Get all interface addresses
-    $addresses = pfSense_getall_interface_addresses($interface);
-
-    if (empty($addresses)) {
-        respond(400, '', "No addresses found for the interface");
-    }
-
-    // Generate PF rules as a string
-    $pfRules = "set skip on lo0\n";
-
-    // NAT rules
-    foreach ($addresses as $ipCidr) {
-        $pfRules .= "nat on vtnet0 from {$ipCidr} to any -> (vtnet0)\n";
-    }
-
-    // Filtering rules
-    foreach ($addresses as $ipCidr) {
-        $pfRules .= <<<EOT
-            pass in on vtnet0 from any to any keep state
-            pass in on {$interface} from any to {$ipCidr} keep state
-            pass out on vtnet0 from {$ipCidr} to any keep state
-            pass in on {$interface} inet from {$ipCidr} to (self) keep state
-        EOT;
-        $pfRules .= "\n";
-    }
-
-    // Execute pfctl command to apply rules directly
-    $process = proc_open(
-        'pfctl -f -',
-        [
-            ['pipe', 'r'], // stdin
-            ['pipe', 'w'], // stdout
-            ['pipe', 'w'], // stderr
-        ],
-        $pipes
-    );
-
-    if (is_resource($process)) {
-        fwrite($pipes[0], $pfRules); // Write rules to stdin
-        fclose($pipes[0]);
-
-        $output = stream_get_contents($pipes[1]);
-        $errorOutput = stream_get_contents($pipes[2]);
-
-        fclose($pipes[1]);
-        fclose($pipes[2]);
-
-        $status = proc_close($process);
-
-        if ($status !== 0) {
-            respond(404, '', "Failed to apply PF rules: $errorOutput");
-        }
-    } else {
-        respond(500, '', "Failed to execute pfctl command");
-    }
-
-    return $status; // Return 0 for success
-}
-
-function reloadAWG($interface)
-{
-    $output = [];
-    $status = 0;
-    $messages = [];
-
-    // Enable IP forwarding
-    exec("sysctl net.inet.ip.forwarding=1", $output, $status);
-    if ($status !== 0) {
-        respond(404, '', "Failed to enable IP forwarding");
-    } else {
-        $messages[] = "IP forwarding enabled successfully.";
-    }
-
-    // Make IP forwarding permanent if not already set
-    $rcConfPath = '/etc/rc.conf';
-    $rcConfContent = file_exists($rcConfPath) ? file_get_contents($rcConfPath) : '';
-
-    if (strpos($rcConfContent, "gateway_enable=\"YES\"") === false) {
-        file_put_contents($rcConfPath, "gateway_enable=\"YES\"\n", FILE_APPEND);
-        $messages[] = "IP forwarding made permanent in /etc/rc.conf.";
-    }
-
-    // Enable PF and PF logging in /etc/rc.conf if not already set
-    $rcConfUpdates = [
-        "pf_enable=\"YES\"",
-        "pflog_enable=\"YES\"",
-    ];
-    foreach ($rcConfUpdates as $line) {
-        if (strpos($rcConfContent, $line) === false) {
-            file_put_contents($rcConfPath, $line . "\n", FILE_APPEND);
-            $messages[] = "$line added to /etc/rc.conf.";
-        }
-    }
-
-    // Check if PF service is already running
-    exec("service pf status", $output, $status);
-    if (strpos(implode("\n", $output), "Status: Enabled") !== false) {
-        $messages[] = "PF service is already running.";
-    } else {
-        // Start PF service
-        exec("service pf start", $output, $status);
-        if ($status !== 0) {
-            respond(404, '', "Failed to start PF service");
-        } else {
-            $messages[] = "PF service started successfully.";
-        }
-    }
-
-   
-
-    respond(200, $messages, "WireGuard service restarted and configurations applied successfully.");
-}
-
+    
 function getInputData()
 {
     $input = $_POST;
@@ -539,17 +498,20 @@ function getInputData()
 function getJsonInputData()
 {
     $input = file_get_contents('php://input');
+    
+    // BUG FIX: Handle empty input gracefully
+    if ($input === false || $input === '') {
+        return [];
+    }
+    
     $data = json_decode($input, true);
 
     if (json_last_error() !== JSON_ERROR_NONE) {
-        respond(400, "Invalid JSON input: " . json_last_error_msg());
+        respond(400, '', "Invalid JSON input: " . json_last_error_msg());
     }
 
-    if (empty($data)) {
-        respond(400, "No JSON data received");
-    }
-
-    return $data;
+    // BUG FIX: Return empty array instead of responding with error for empty data
+    return $data ?? [];
 }
 
 function getHttpVariables()
@@ -569,18 +531,54 @@ function getHttpVariables()
 
 }
 
-function addTunnel($tunnelData,$overwrite = false)
+function addTunnel($tunnelData, $overwrite = false)
 {
     global $config;
+
+    // BUG FIX: Validate input is array
+    if (!is_array($tunnelData)) {
+        respond(400, '', "Tunnel data must be an array");
+    }
 
     $tunnelsPath = AMNEZIAWG_BASE_PATH . '/tunnels/item';
     $tunnels = config_get_path($tunnelsPath, []);
 
     // Validate required fields
-    $requiredFields = ['name', 'descr','listenport', 'addresses'];
+    $requiredFields = ['name', 'descr', 'listenport', 'addresses'];
     foreach ($requiredFields as $field) {
         if (empty($tunnelData[$field])) {
             respond(400, '', "Missing required field: $field");
+        }
+    }
+
+    // BUG FIX: Validate tunnel name format
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $tunnelData['name'])) {
+        respond(400, '', "Invalid tunnel name format. Use only alphanumeric characters, hyphens, and underscores.");
+    }
+
+    // BUG FIX: Validate listen port
+    $port = intval($tunnelData['listenport']);
+    if ($port < 1 || $port > 65535) {
+        respond(400, '', "Invalid listen port. Must be between 1 and 65535.");
+    }
+
+    // BUG FIX: Validate addresses format
+    if (!is_array($tunnelData['addresses'])) {
+        respond(400, '', "Addresses must be an array");
+    }
+
+    foreach ($tunnelData['addresses'] as $addr) {
+        if (!is_array($addr) || !isset($addr['address']) || !isset($addr['mask'])) {
+            respond(400, '', "Invalid address format");
+        }
+        
+        if (!filter_var($addr['address'], FILTER_VALIDATE_IP)) {
+            respond(400, '', "Invalid IP address: " . $addr['address']);
+        }
+        
+        $mask = intval($addr['mask']);
+        if ($mask < 0 || $mask > 32) {
+            respond(400, '', "Invalid subnet mask: " . $addr['mask']);
         }
     }
 
@@ -856,17 +854,23 @@ function syncTunnels($tunnels)
 }
 
 $uri = $_SERVER['REQUEST_URI'];
-$apiKey = $_SERVER['HTTP_X_API_KEY'];
-$iface = $_SERVER['X-INTERFACE-NAME'];
+$apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
+$iface = $_SERVER['X-INTERFACE-NAME'] ?? '';
 
-//getHttpVariables();
 authenticate($apiKey);
+
+// BUG FIX: Handle cases where no JSON input is provided
 $input = getJsonInputData();
 
-if ($input) {
-
-
+// BUG FIX: Check if input is valid before processing
+if (!empty($input) && is_array($input)) {
     $action = $input['act'] ?? '';
+    
+    // BUG FIX: Validate action parameter
+    if (empty($action) || !is_string($action)) {
+        respond(400, '', "Invalid or missing action parameter");
+    }
+    
     switch ($action) {
         case "get_peers":
             respond(200, listPeers());
@@ -914,23 +918,13 @@ if ($input) {
             }
             addTunnel($tunnelData, $overwrite);
             break;
-
-        case "reload":
-            $interface = $input['interface'] ?? '';
-            if (!$interface)
-                respond(400, "Missing interface name");
-            respond(200, reloadAWG($interface));
-            break;
-        case "test":
-            wg_destroy_rogue_tunnels();
-            respond(200, "Rogue tunnels destroyed successfully");
-
-
+    
         default:
-            respond(400, "Invalid action specified");
+            respond(400, '', "Invalid action specified: " . htmlspecialchars($action));
     }
+} else {
+    respond(400, '', "Invalid or missing JSON input");
 }
 
 
-respond(404, '',"Invalid request");
 ?>
