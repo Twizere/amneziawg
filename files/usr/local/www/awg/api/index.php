@@ -214,7 +214,7 @@ function syncPeers($peers, $tunnel = null)
 
         $newPeers[] = [
             'id' => $existingPeersMap[$peer['public_key']]['id'] ?? wg_generate_uuid(),
-            'enabled' => isset($peer['enabled']) && $peer['enabled'] ? 'yes' : 'no',
+            'enabled' => 'yes',
             'tun' => $tunnel,
             'descr' => $peer['description'],
             'publickey' => $peer['public_key'],
@@ -618,8 +618,8 @@ function addTunnel($tunnelData,$overwrite = false)
 
 
     // Generate default values for amnezia wireguard and directly add them to $tunnelConfig
-    $tunnelConfig['jc'] = rand(3, 127);
-    $tunnelConfig['jmin'] = $jmin = rand(10, 699);
+    $tunnelConfig['jc'] = rand(3, 10);
+    $tunnelConfig['jmin'] = $jmin = rand(10, 300);
     $tunnelConfig['jmax'] = rand($jmin + 1, $jmin + 570);
 
     $tunnelConfig['s1'] = rand(3, 127);
@@ -645,11 +645,11 @@ function addTunnel($tunnelData,$overwrite = false)
     wg_apply_list_add('tunnels', $tunnelData['name']);
     // Resync the package
     wg_resync();
-    // $tunnels_to_apply = wg_apply_list_get('tunnels');
-    // $sync_status = wg_tunnel_sync($tunnels_to_apply, false, true);
-    // if ($sync_status['ret_code'] !== 0) {
-    //     respond(500, '', "Failed to sync tunnel: {$sync_status['message']}");
-    // }
+    //$tunnels_to_apply = wg_apply_list_get('tunnels');
+    $sync_status = wg_tunnel_sync_by_name( $tunnelConfig['name'], true);
+    if ($sync_status['ret_code'] !== 0) {
+        respond(500, '', "Failed to sync tunnel: {$sync_status['message']}");
+    }
     $tunnelConfig["privatekey"]=""; //Hiding the private key from the response
     
     // Use parseTunnel to ensure consistent formatting including boolean enabled field
