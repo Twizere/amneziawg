@@ -8,6 +8,7 @@ $tab_array[] = array(gettext("Tunnels"), $active_tab == "Tunnels", "/awg/awg_tun
 $tab_array[] = array(gettext("Peers"), $active_tab == "Peers", "/awg/awg_peers.php");
 $tab_array[] = array(gettext("Settings"), $active_tab == "Settings", "/awg/awg_settings.php");
 $tab_array[] = array(gettext("API"), $active_tab == "Api", "/awg/awg_api.php");
+$tab_array[] = array(gettext("Diagnostics"), $active_tab == "Diagnostics", "/awg/awg_firewall_check.php");
 add_package_tabs("AWG", $tab_array);
 
 ?>

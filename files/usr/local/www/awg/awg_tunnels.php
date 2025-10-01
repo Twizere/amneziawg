@@ -219,6 +219,10 @@ display_top_tabs($tab_array);
 			<i class="fa fa-solid fa-plus icon-embed-btn"></i>
 			<?= gettext('Add Tunnel') ?>
 		</a>
+		<a href="awg_firewall_check.php" class="btn btn-info btn-sm" style="margin-left: 10px;">
+			<i class="fa fa-solid fa-shield-alt icon-embed-btn"></i>
+			<?= gettext('Firewall Check') ?>
+		</a>
 	</nav>
 </form>
 
