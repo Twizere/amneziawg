@@ -80,7 +80,7 @@ if (!empty($pconfig['ip_whitelist']) && is_array($pconfig['ip_whitelist']['row']
 
 $active_tab = "Api";
 include('amneziawireguard/includes/awg_header.inc');
-$pgtitle[]= [$active_tab];
+$pgtitle[] = $active_tab;
 include("head.inc");
 $pglinks = array('', '/awg/awg_tunnels.php', '@self');
 
