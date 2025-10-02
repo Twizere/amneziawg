@@ -10,6 +10,11 @@
 		<section>Status</section>
 		<url>/awg/status_amneziawg.php</url>
 	</menu>
+        <menu>
+		<name>Amnezia WG</name>
+		<section>Diagnostics</section>
+		<url>/awg/awg_firewall_check.php</url>
+	</menu>
         <service>
                 <name>amneziawg_service</name>
                 <rcfile>amneziawg_service</rcfile>
