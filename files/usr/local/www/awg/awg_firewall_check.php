@@ -378,6 +378,22 @@ function check_wan_port_rules($tunnel_ports) {
                 
                 $debug_attempts[] = 'Checking rule ' . $rule_index . ': ' . ($rule['descr'] ?? 'Unnamed');
                 
+                // Add detailed debug info about rule structure
+                $rule_debug = 'Rule details - ';
+                if (isset($rule['destination']['port'])) {
+                    $rule_debug .= 'port: ' . $rule['destination']['port'] . ', ';
+                }
+                if (isset($rule['destination']['from']) && isset($rule['destination']['to'])) {
+                    $rule_debug .= 'from: ' . $rule['destination']['from'] . ' to: ' . $rule['destination']['to'] . ', ';
+                }
+                if (isset($rule['destination']['any'])) {
+                    $rule_debug .= 'any: true, ';
+                }
+                if (isset($rule['destination']['network'])) {
+                    $rule_debug .= 'network: ' . $rule['destination']['network'] . ', ';
+                }
+                $debug_attempts[] = trim($rule_debug, ', ');
+                
                 // Method 1: Check destination port field
                 if (isset($rule['destination']['port'])) {
                     $dest_port = $rule['destination']['port'];
@@ -489,21 +505,21 @@ function check_wan_port_rules($tunnel_ports) {
                     }
                 }
                 
-                // Method 3: Check if destination is 'any' without port specified
-                if (!$port_allowed && isset($rule['destination']['any'])) {
+                // Method 3: Check if destination is 'any' without port specified (only if no specific port is defined)
+                if (!$port_allowed && isset($rule['destination']['any']) && !isset($rule['destination']['port']) && !isset($rule['destination']['from']) && !isset($rule['destination']['to'])) {
                     $port_allowed = true;
-                    $rule_details = 'Rule: ' . ($rule['descr'] ?? 'Unnamed rule') . ' (Any destination)';
-                    $match_method = 'Any destination';
-                    $debug_attempts[] = 'MATCHED: Any destination';
+                    $rule_details = 'Rule: ' . ($rule['descr'] ?? 'Unnamed rule') . ' (Any destination, no port restrictions)';
+                    $match_method = 'Any destination without port restrictions';
+                    $debug_attempts[] = 'MATCHED: Any destination without port restrictions';
                     break;
                 }
                 
-                // Method 4: Check for destination network that might be 'any' 
-                if (!$port_allowed && isset($rule['destination']['network']) && $rule['destination']['network'] == 'any') {
+                // Method 4: Check for destination network that might be 'any' (only if no specific port is defined)
+                if (!$port_allowed && isset($rule['destination']['network']) && $rule['destination']['network'] == 'any' && !isset($rule['destination']['port']) && !isset($rule['destination']['from']) && !isset($rule['destination']['to'])) {
                     $port_allowed = true;
-                    $rule_details = 'Rule: ' . ($rule['descr'] ?? 'Unnamed rule') . ' (Network: any)';
-                    $match_method = 'Any network';
-                    $debug_attempts[] = 'MATCHED: Any network';
+                    $rule_details = 'Rule: ' . ($rule['descr'] ?? 'Unnamed rule') . ' (Network: any, no port restrictions)';
+                    $match_method = 'Any network without port restrictions';
+                    $debug_attempts[] = 'MATCHED: Any network without port restrictions';
                     break;
                 }
             }
