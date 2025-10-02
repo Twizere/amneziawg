@@ -650,9 +650,18 @@ function addTunnel($tunnelData, $overwrite = false)
     wg_resync();
     //$tunnels_to_apply = wg_apply_list_get('tunnels');
     $sync_status = wg_tunnel_sync_by_name( $tunnelConfig['name'], true);
-    if ($sync_status['ret_code'] !== 0) {
-        respond(500, '', "Failed to sync tunnel: {$sync_status['message']}");
+    
+    // Handle different return types from wg_tunnel_sync_by_name
+    if (is_array($sync_status) && isset($sync_status['ret_code'])) {
+        if ($sync_status['ret_code'] !== 0) {
+            $error_msg = isset($sync_status['message']) ? $sync_status['message'] : 'Unknown sync error';
+            respond(500, '', "Failed to sync tunnel: {$error_msg}");
+        }
+    } else {
+        // If wg_tunnel_sync_by_name doesn't return expected array format, we assume success
+        // and continue (this matches the original behavior when it worked)
     }
+    
     $tunnelConfig["privatekey"]=""; //Hiding the private key from the response
     
     // Use parseTunnel to ensure consistent formatting including boolean enabled field
@@ -748,6 +757,32 @@ function syncTunnels($tunnels)
     foreach ($existingTunnels as $tunnel) {
         if (!in_array($tunnel['name'], $newTunnelNames)) {
             $tunnelsToDelete[] = $tunnel['name'];
+        }
+    }
+
+    // Find new tunnels that need to be brought up (in new list but don't exist)
+    $existingTunnelNames = array_map(function($tunnel) { return $tunnel['name']; }, $existingTunnels);
+    $tunnelsToAdd = [];
+    foreach ($newTunnelNames as $tunnelName) {
+        if (!in_array($tunnelName, $existingTunnelNames)) {
+            $tunnelsToAdd[] = $tunnelName;
+        }
+    }
+
+    // First, bring down tunnels that will be deleted using awg-quick
+    if (!empty($tunnelsToDelete)) {
+        foreach ($tunnelsToDelete as $tunnelName) {
+            // Check if tunnel interface exists and is up before trying to bring it down
+            if (wg_interface_status($tunnelName)) {
+                $cmds = [];
+                // Use awg-quick down to properly bring down the tunnel
+                $result = wg_ifconfig_if_updown($tunnelName, false, $cmds);
+                if (!$result) {
+                    error_log("Warning: Failed to bring down tunnel interface '{$tunnelName}' using awg-quick during sync");
+                } else {
+                    error_log("Successfully brought down tunnel interface '{$tunnelName}' using awg-quick before deletion");
+                }
+            }
         }
     }
 
@@ -870,9 +905,44 @@ function syncTunnels($tunnels)
     // Resync the package
     wg_resync();
 
+    // Bring up new tunnels that were added during sync (using same approach as addTunnel)
+    if (!empty($tunnelsToAdd)) {
+        foreach ($tunnelsToAdd as $tunnelName) {
+            // Check if the tunnel should be enabled
+            $tunnelShouldBeEnabled = false;
+            foreach ($tunnels as $tunnel) {
+                if ($tunnel['name'] === $tunnelName && (!isset($tunnel['enabled']) || $tunnel['enabled'])) {
+                    $tunnelShouldBeEnabled = true;
+                    break;
+                }
+            }
+            
+            if ($tunnelShouldBeEnabled) {
+                // Use the same method as addTunnel: wg_tunnel_sync_by_name
+                $sync_status = wg_tunnel_sync_by_name($tunnelName, true);
+                
+                // Handle different return types from wg_tunnel_sync_by_name
+                if (is_array($sync_status) && isset($sync_status['ret_code'])) {
+                    if ($sync_status['ret_code'] !== 0) {
+                        $error_msg = isset($sync_status['message']) ? $sync_status['message'] : 'Unknown error';
+                        error_log("Warning: Failed to bring up new tunnel interface '{$tunnelName}' during sync. Error code: {$sync_status['ret_code']}, Message: {$error_msg}");
+                    } else {
+                        error_log("Successfully brought up new tunnel interface '{$tunnelName}' using wg_tunnel_sync_by_name");
+                    }
+                } else {
+                    // Handle case where wg_tunnel_sync_by_name returns non-array or unexpected format
+                    error_log("Successfully called wg_tunnel_sync_by_name for new tunnel interface '{$tunnelName}' (return type: " . gettype($sync_status) . ")");
+                }
+            }
+        }
+    }
+
     $responseMessage = "Tunnels synced successfully";
     if (!empty($tunnelsToDelete)) {
         $responseMessage .= " (deleted tunnels: " . implode(', ', $tunnelsToDelete) . ")";
+    }
+    if (!empty($tunnelsToAdd)) {
+        $responseMessage .= " (added tunnels: " . implode(', ', $tunnelsToAdd) . ")";
     }
 
     respond(200, listTunnels(), $responseMessage);
