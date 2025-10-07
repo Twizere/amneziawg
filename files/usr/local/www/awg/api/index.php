@@ -948,6 +948,114 @@ function syncTunnels($tunnels)
     respond(200, listTunnels(), $responseMessage);
 }
 
+function resetTunnelConfig($tunnelName)
+{
+    global $config;
+
+    $tunnelsPath = AMNEZIAWG_BASE_PATH . '/tunnels/item';
+    $existingTunnels = config_get_path($tunnelsPath, []);
+
+    if (empty($existingTunnels)) {
+        respond(400, '', "No tunnels found to reset");
+    }
+
+    // Validate tunnel name is provided
+    if (empty($tunnelName) || !is_string($tunnelName)) {
+        respond(400, '', "Tunnel name is required and must be a string");
+    }
+
+    // Validate tunnel exists
+    $tunnelExists = false;
+    $tunnelConfig = null;
+    foreach ($existingTunnels as $tunnel) {
+        if ($tunnel['name'] === $tunnelName) {
+            $tunnelExists = true;
+            $tunnelConfig = $tunnel;
+            break;
+        }
+    }
+
+    if (!$tunnelExists) {
+        respond(404, '', "Tunnel '{$tunnelName}' not found");
+    }
+
+    // Step 1: Bring down the tunnel if it's running
+    if (wg_interface_status($tunnelName)) {
+        $cmds = [];
+        $result = wg_ifconfig_if_updown($tunnelName, false, $cmds);
+        if (!$result) {
+            error_log("Warning: Failed to bring down tunnel '{$tunnelName}' during reset");
+        } else {
+            error_log("Successfully brought down tunnel '{$tunnelName}' for reset");
+        }
+    }
+
+    // Step 2: Generate new Amnezia WireGuard configuration values
+    $tunnelsPath = AMNEZIAWG_BASE_PATH . '/tunnels/item';
+    $tunnels = config_get_path($tunnelsPath, []);
+    
+    // Find and update the tunnel with new Amnezia config values
+    foreach ($tunnels as $index => $tunnel) {
+        if ($tunnel['name'] === $tunnelName) {
+            // Generate fresh Amnezia WireGuard obfuscation parameters
+            $tunnels[$index]['jc'] = rand(3, 10);
+            $jmin = rand(10, 300);
+            $tunnels[$index]['jmin'] = $jmin;
+            $tunnels[$index]['jmax'] = rand($jmin + 1, $jmin + 570);
+            $tunnels[$index]['s1'] = rand(3, 127);
+            $tunnels[$index]['s2'] = rand(3, 127);
+            
+            $min = 0x10000011;
+            $max = 0x7FFFFF00;
+            $tunnels[$index]['h1'] = rand($min, $max);
+            $tunnels[$index]['h2'] = rand($min, $max);
+            $tunnels[$index]['h3'] = rand($min, $max);
+            $tunnels[$index]['h4'] = rand($min, $max);
+            
+            // Update the tunnel configuration
+            $tunnelConfig = $tunnels[$index];
+            break;
+        }
+    }
+    
+    // Save the updated configuration with new Amnezia parameters
+    config_set_path($tunnelsPath, $tunnels);
+    write_config("Reset tunnel '{$tunnelName}' with new Amnezia configuration parameters");
+
+    // Step 3: Resync configurations to regenerate config files with new parameters
+    wg_resync();
+
+    // Step 4: Bring up the tunnel with fresh configuration if it should be enabled
+    $shouldBeEnabled = (!isset($tunnelConfig['enabled']) || $tunnelConfig['enabled'] === 'yes');
+
+    if ($shouldBeEnabled) {
+        // Use the same method as addTunnel: wg_tunnel_sync_by_name
+        $sync_status = wg_tunnel_sync_by_name($tunnelName, true);
+        
+        // Handle different return types from wg_tunnel_sync_by_name
+        if (is_array($sync_status) && isset($sync_status['ret_code'])) {
+            if ($sync_status['ret_code'] !== 0) {
+                $error_msg = isset($sync_status['message']) ? $sync_status['message'] : 'Unknown error';
+                error_log("Warning: Failed to bring up tunnel '{$tunnelName}' during reset. Error code: {$sync_status['ret_code']}, Message: {$error_msg}");
+                respond(500, '', "Failed to restart tunnel '{$tunnelName}': {$error_msg}");
+            } else {
+                error_log("Successfully reset and brought up tunnel '{$tunnelName}' with new Amnezia configuration");
+            }
+        } else {
+            // If wg_tunnel_sync_by_name doesn't return expected array format, assume success
+            error_log("Successfully called wg_tunnel_sync_by_name for tunnel '{$tunnelName}' with new Amnezia configuration (return type: " . gettype($sync_status) . ")");
+        }
+        
+        $responseMessage = "Tunnel '{$tunnelName}' configuration reset with new Amnezia parameters and restarted successfully";
+    } else {
+        // Tunnel is disabled, just note it was processed
+        error_log("Tunnel '{$tunnelName}' is disabled, configuration reset with new Amnezia parameters but not started");
+        $responseMessage = "Tunnel '{$tunnelName}' configuration reset with new Amnezia parameters (tunnel is disabled)";
+    }
+
+    respond(200, listTunnels(), $responseMessage);
+}
+
 $uri = $_SERVER['REQUEST_URI'];
 $apiKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 $iface = $_SERVER['X-INTERFACE-NAME'] ?? '';
@@ -1012,6 +1120,16 @@ if (!empty($input) && is_array($input)) {
                 respond(400, '', "Invalid or missing tunnel data");
             }
             addTunnel($tunnelData, $overwrite);
+            break;
+        case "reset_tunnel":
+            $tunnelName = $input['tunnel'] ?? '';
+            
+            // Validate tunnel parameter
+            if (empty($tunnelName) || !is_string($tunnelName)) {
+                respond(400, '', "Invalid tunnel parameter: tunnel name is required and must be a string");
+            }
+            
+            resetTunnelConfig($tunnelName);
             break;
     
         default:
