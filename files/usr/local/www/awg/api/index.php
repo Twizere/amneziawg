@@ -68,6 +68,32 @@ function respond($status, $data = '', $message = '')
     exit;
 }
 
+function getPublicIP()
+{
+    // Array of reliable IP detection services with fallback
+    $ip_services = [
+        'https://ifconfig.me',
+        'https://ipinfo.io/ip',
+        'https://icanhazip.com',
+        'https://checkip.amazonaws.com',
+        'https://ipecho.net/plain',
+        'https://myexternalip.com/raw'
+    ];
+    
+    foreach ($ip_services as $service) {
+        $curl_output = shell_exec("timeout 1 curl -s --max-time 5 " . escapeshellarg($service));
+        if ($curl_output !== null) {
+            $potential_ip = trim($curl_output);
+            // Validate IP format
+            if (filter_var($potential_ip, FILTER_VALIDATE_IP)) {
+                return $potential_ip;
+            }
+        }
+    }
+    
+    // If all services fail, return a default message
+    return 'Unable to determine';
+}
 
 function authenticate($apiKey)
 {
@@ -145,18 +171,8 @@ function parseTunnel($tunnel)
     
     $peers = wg_tunnel_get_peers_config($tunnel['name']);
     
-    // BUG FIX: Sanitize shell command and add error handling
-    $server_public_ip = '';
-    $curl_output = shell_exec("timeout 3 curl -s --max-time 5  https://ifconfig.me");
-    if ($curl_output !== null) {
-        $server_public_ip = trim($curl_output);
-        // Validate IP format
-        if (!filter_var($server_public_ip, FILTER_VALIDATE_IP)) {
-            $server_public_ip = 'Unable to determine';
-        }
-    } else {
-        $server_public_ip = 'Unable to determine';
-    }
+    // Get public IP using centralized function
+    $server_public_ip = getPublicIP();
     
     return [
         'name' => htmlspecialchars($tunnel['name']),
