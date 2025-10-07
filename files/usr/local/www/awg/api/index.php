@@ -147,7 +147,7 @@ function parseTunnel($tunnel)
     
     // BUG FIX: Sanitize shell command and add error handling
     $server_public_ip = '';
-    $curl_output = shell_exec("timeout 3 curl -s --max-time 5 ifconfig.me");
+    $curl_output = shell_exec("timeout 3 curl -s --max-time 5  https://ifconfig.me");
     if ($curl_output !== null) {
         $server_public_ip = trim($curl_output);
         // Validate IP format
