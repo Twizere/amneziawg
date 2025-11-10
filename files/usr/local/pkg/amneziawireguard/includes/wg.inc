@@ -438,6 +438,11 @@ function wg_do_api_settings_post($post) {
 	$pconfig['api_key'] = $post['api_key'];
 	$pconfig['rate_limit'] = is_numeric($post['rate_limit']) ? $post['rate_limit'] : 0;
 
+	// Ensure ip_whitelist is an array before accessing it
+	if (!is_array($pconfig['ip_whitelist'])) {
+		$pconfig['ip_whitelist'] = array();
+	}
+
 	// Process the IP whitelist
 	$pconfig['ip_whitelist']['row'] = wg_parse_post_repeatables($post, array('whitelist_address', 'whitelist_address_subnet', 'whitelist_address_descr'));
 
