@@ -155,6 +155,16 @@ $group->add(new Form_Button(
 
 
 $section->add($group);
+
+// Endpoint Override
+$section->addInput(new Form_Input(
+    'endpoint_override',
+    gettext('Endpoint Override'),
+    'text',
+    $pconfig['endpoint_override']
+))->setHelp(gettext('Optional. Specify a custom endpoint (IP address or hostname) for peer configurations. ' .
+    'If left empty, the public IP will be auto-detected. Useful when pfSense is behind NAT or for custom domains.'));
+
 $form->add($section);
 
 $form->addGlobal(new Form_Input(

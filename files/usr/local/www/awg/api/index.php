@@ -171,8 +171,9 @@ function parseTunnel($tunnel)
     
     $peers = wg_tunnel_get_peers_config($tunnel['name']);
     
-    // Get public IP using centralized function
-    $server_public_ip = getPublicIP();
+    // Get endpoint from API config or auto-detect
+    $api_config = config_get_path('installedpackages/amneziawg/api', []);
+    $endpoint_ip = !empty($api_config['endpoint_override']) ? $api_config['endpoint_override'] : getPublicIP();
     
     return [
         'name' => htmlspecialchars($tunnel['name']),
@@ -185,7 +186,7 @@ function parseTunnel($tunnel)
             }
             return "{$ip['address']}/{$ip['mask']}";
         }, $tunnel['addresses']['row'] ?? []),
-        'public_ip' => $server_public_ip,
+        'endpoint' => $endpoint_ip,
         'listen_port' => htmlspecialchars($tunnel['listenport'] ?? ''),
         
         'config' => [

@@ -437,6 +437,7 @@ function wg_do_api_settings_post($post) {
 	$pconfig['auth_method'] = $post['auth_method'];
 	$pconfig['api_key'] = $post['api_key'];
 	$pconfig['rate_limit'] = is_numeric($post['rate_limit']) ? $post['rate_limit'] : 0;
+	$pconfig['endpoint_override'] = trim($post['endpoint_override']);
 
 	// Ensure ip_whitelist is an array before accessing it
 	if (!is_array($pconfig['ip_whitelist'])) {
@@ -1065,9 +1066,12 @@ function wg_make_peer_conf_file($peer, $include_endpoint = false) {
 		// Process interface PrivateKey
 		$key = wg_gen_publickey($tunnel['privatekey']);
 		$wc->add_peer($key['pubkey'], "Tunnel: {$tunnel['descr']}");
-		// Add the server's public IP address as a peer attribute
-		$server_public_ip = trim(shell_exec("curl -s ifconfig.me"));
-		$wc->set_peer_attr($key['pubkey'], 'Endpoint', "{$server_public_ip}:{$tunnel['listenport']}");
+		
+		// Determine endpoint: use API endpoint override if set, otherwise auto-detect
+		$api_config = config_get_path('installedpackages/amneziawg/api', []);
+		$endpoint_ip = !empty($api_config['endpoint_override']) ? $api_config['endpoint_override'] : getPublicIP();
+		$wc->set_peer_attr($key['pubkey'], 'Endpoint', "{$endpoint_ip}:{$tunnel['listenport']}");
+		
 		// Process PersistentKeepalive
 		$keepalive = $peer['persistentkeepalive'];
 		$keepalive = (!empty($keepalive) && is_numericint($keepalive)) ? $keepalive : '0';

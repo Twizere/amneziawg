@@ -120,6 +120,15 @@ function wg_validate_api_settings_post($pconfig) {
 		$input_errors[] = gettext('Rate limit must be a non-negative integer.');
 	}
 
+	// Validate endpoint override (if provided)
+	if (!empty($pconfig['endpoint_override'])) {
+		$endpoint = trim($pconfig['endpoint_override']);
+		// Check if it's a valid IP address or hostname
+		if (!is_ipaddr($endpoint) && !is_hostname($endpoint)) {
+			$input_errors[] = gettext('Endpoint override must be a valid IP address or hostname.');
+		}
+	}
+
 	// Validate IP whitelist
 	if (!empty($pconfig['ip_whitelist']['row']) && is_array($pconfig['ip_whitelist']['row'])) {
 		foreach ($pconfig['ip_whitelist']['row'] as $row) {
