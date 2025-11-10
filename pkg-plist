@@ -9,6 +9,7 @@ pkg/amneziawireguard/includes/wg_api.inc
 pkg/amneziawireguard/includes/wg_globals.inc
 pkg/amneziawireguard/includes/wg_guiconfig.inc
 pkg/amneziawireguard/includes/wg_install.inc
+pkg/amneziawireguard/includes/wg_logging.inc
 pkg/amneziawireguard/includes/wg_service.inc
 pkg/amneziawireguard/includes/wg_validate.inc
 pkg/amneziawireguard/includes/wg.inc
@@ -18,6 +19,8 @@ share/pfSense/menu/pfSense-pkg-AmneziaWireguard.xml
 www/awg/js/AmneziaWireguardHelper.js
 www/awg/api/index.php
 www/awg/awg_api.php
+www/awg/awg_firewall_check.php
+www/awg/awg_logs.php
 www/awg/awg_peers_edit.php
 www/awg/awg_peers.php
 www/awg/awg_settings.php
@@ -27,3 +30,4 @@ www/awg/status_amneziawg.php
 www/awg/status_log.php
 www/shortcuts/pkg_amneziawireguard.inc
 www/widgets/include/amneziawg.inc
+www/widgets/widgets/amneziawg.widget.php
