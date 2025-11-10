@@ -112,7 +112,7 @@ function authenticate($apiKey)
     $apiConfig = getAPIConfig();
 
     // Check if API is enabled
-    if (empty($apiConfig['api_enable']) || !$apiConfig['api_enable']) {
+    if (empty($apiConfig['api_enable']) || $apiConfig['api_enable'] !== 'yes') {
         respond(403, '', "API is disabled");
     }
 
