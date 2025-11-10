@@ -1069,7 +1069,9 @@ function resetTunnelConfig($tunnelName)
         $responseMessage = "Tunnel '{$tunnelName}' configuration reset with new Amnezia parameters (tunnel is disabled)";
     }
 
-    respond(200, listTunnels(), $responseMessage);
+    // Return only the specific tunnel that was reset, not all tunnels
+    $resetTunnelData = parseTunnel($tunnelConfig);
+    respond(200, $resetTunnelData, $responseMessage);
 }
 
 $uri = $_SERVER['REQUEST_URI'];
@@ -1101,18 +1103,19 @@ if (!empty($input) && is_array($input)) {
             $peers = $input['peers'] ?? [];
             $tunnel = $input['tunnel'] ?? 'all'; // Default to 'all' if not specified
 
-            if (empty($peers) || !is_array($peers)) {
-                respond(400, '', "Invalid or missing peers data");
+            if (!is_array($peers)) {
+                respond(400, '', "Peers must be an array");
             }
 
             // Allow syncing to all tunnels or a specific tunnel
             // If tunnel is 'all' or empty, sync to all tunnels
+            // Empty array is allowed to clear all peers
             syncPeers($peers, $tunnel);
             break;
         case "sync_peers_all":
             $peers = $input['peers'] ?? [];
 
-            if (empty($peers) || !is_array($peers)) {
+            if (!is_array($peers)) {
                 respond(400, '', "Invalid or missing peers data");
             }
 
