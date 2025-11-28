@@ -129,6 +129,27 @@ function wg_validate_api_settings_post($pconfig) {
 		}
 	}
 
+	// Validate DNS servers (if provided)
+	if (!empty($pconfig['dns_servers'])) {
+		$dns_servers_raw = trim($pconfig['dns_servers']);
+		// Split by comma and validate each DNS server
+		$dns_servers = array_map('trim', explode(',', $dns_servers_raw));
+		
+		foreach ($dns_servers as $dns_server) {
+			if (!empty($dns_server)) {
+				// Check if it's a valid IP address (IPv4 or IPv6)
+				if (!is_ipaddr($dns_server)) {
+					$input_errors[] = gettext("DNS server '{$dns_server}' is not a valid IP address.");
+				}
+			}
+		}
+		
+		// Check for empty DNS servers after trimming
+		if (count(array_filter($dns_servers)) === 0) {
+			$input_errors[] = gettext('DNS servers field cannot be empty if specified. Either provide valid DNS servers or leave the field blank.');
+		}
+	}
+
 	// Validate IP whitelist
 	if (!empty($pconfig['ip_whitelist']['row']) && is_array($pconfig['ip_whitelist']['row'])) {
 		foreach ($pconfig['ip_whitelist']['row'] as $row) {

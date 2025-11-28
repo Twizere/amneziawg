@@ -171,9 +171,16 @@ function parseTunnel($tunnel)
     
     $peers = wg_tunnel_get_peers_config($tunnel['name']);
     
-    // Get endpoint from API config or auto-detect
+    // Get endpoint and DNS from API config or auto-detect
     $api_config = config_get_path('installedpackages/amneziawg/api', []);
     $endpoint_ip = !empty($api_config['endpoint_override']) ? $api_config['endpoint_override'] : getPublicIP();
+    
+    // Process DNS servers if provided
+    $dns_servers = [];
+    if (!empty($api_config['dns_servers'])) {
+        $dns_servers = array_map('trim', explode(',', trim($api_config['dns_servers'])));
+        $dns_servers = array_filter($dns_servers); // Remove empty values
+    }
     
     return [
         'name' => htmlspecialchars($tunnel['name']),
@@ -188,6 +195,7 @@ function parseTunnel($tunnel)
         }, $tunnel['addresses']['row'] ?? []),
         'endpoint' => $endpoint_ip,
         'listen_port' => htmlspecialchars($tunnel['listenport'] ?? ''),
+        'dns' => $dns_servers,
         
         'config' => [
             'jc' => intval($tunnel['jc'] ?? 0),

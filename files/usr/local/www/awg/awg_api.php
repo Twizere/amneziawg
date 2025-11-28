@@ -165,6 +165,15 @@ $section->addInput(new Form_Input(
 ))->setHelp(gettext('Optional. Specify a custom endpoint (IP address or hostname) for peer configurations. ' .
     'If left empty, the public IP will be auto-detected. Useful when pfSense is behind NAT or for custom domains.'));
 
+// DNS Servers
+$section->addInput(new Form_Input(
+    'dns_servers',
+    gettext('DNS Servers'),
+    'text',
+    $pconfig['dns_servers']
+))->setHelp(gettext('Optional. Specify DNS servers (comma-separated) to be included in tunnel configurations. ' .
+    'Example: 1.1.1.1, 8.8.8.8 or 2606:4700:4700::1111, 2001:4860:4860::8888'));
+
 $form->add($section);
 
 $form->addGlobal(new Form_Input(

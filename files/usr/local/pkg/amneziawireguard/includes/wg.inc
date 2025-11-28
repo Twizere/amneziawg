@@ -438,6 +438,7 @@ function wg_do_api_settings_post($post) {
 	$pconfig['api_key'] = $post['api_key'];
 	$pconfig['rate_limit'] = is_numeric($post['rate_limit']) ? $post['rate_limit'] : 0;
 	$pconfig['endpoint_override'] = trim($post['endpoint_override']);
+	$pconfig['dns_servers'] = trim($post['dns_servers']);
 
 	// Ensure ip_whitelist is an array before accessing it
 	if (!is_array($pconfig['ip_whitelist'])) {
