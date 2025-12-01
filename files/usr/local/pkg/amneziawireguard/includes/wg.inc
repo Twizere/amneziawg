@@ -1048,6 +1048,16 @@ function wg_make_peer_conf_file($peer, $include_endpoint = false) {
 	$Address = rtrim($Address, ',');
 	$wc->add_interface_attr('Address', $Address);
 
+	// Get DNS servers from API config if available
+	$api_config = config_get_path('installedpackages/amneziawg/api', []);
+	if (!empty($api_config['dns_servers'])) {
+		$dns_servers = array_map('trim', explode(',', trim($api_config['dns_servers'])));
+		$dns_servers = array_filter($dns_servers); // Remove empty values
+		if (!empty($dns_servers)) {
+			$dns_list = implode(',', $dns_servers);
+			$wc->add_interface_attr('DNS', $dns_list);
+		}
+	}
 
 	// Process tunnel (interface) parameters
 	if (wg_is_valid_tunnel($peer['tun'])) {
@@ -1081,6 +1091,33 @@ function wg_make_peer_conf_file($peer, $include_endpoint = false) {
 	}
 
 	$wc->write_file();
+}
+
+function getPublicIP()
+{
+    // Array of reliable IP detection services with fallback
+    $ip_services = [
+        'https://ifconfig.me',
+        'https://ipinfo.io/ip',
+        'https://icanhazip.com',
+        'https://checkip.amazonaws.com',
+        'https://ipecho.net/plain',
+        'https://myexternalip.com/raw'
+    ];
+    
+    foreach ($ip_services as $service) {
+        $curl_output = shell_exec("timeout 1 curl -s --max-time 5 " . escapeshellarg($service));
+        if ($curl_output !== null) {
+            $potential_ip = trim($curl_output);
+            // Validate IP format
+            if (filter_var($potential_ip, FILTER_VALIDATE_IP)) {
+                return $potential_ip;
+            }
+        }
+    }
+    
+    // If all services fail, return a default message
+    return 'Unable to determine';
 }
 
 function wg_autoloader($classname) {
