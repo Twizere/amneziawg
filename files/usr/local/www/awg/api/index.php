@@ -193,7 +193,7 @@ function parseTunnel($tunnel)
             }
             return "{$ip['address']}/{$ip['mask']}";
         }, $tunnel['addresses']['row'] ?? []),
-        'endpoint' => $endpoint_ip,
+        'public_ip' => $endpoint_ip,
         'listen_port' => htmlspecialchars($tunnel['listenport'] ?? ''),
         'dns' => $dns_servers,
         
