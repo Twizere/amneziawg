@@ -28,16 +28,15 @@ build_and_package:
     - echo "Creating pfSense package"
     - pkg create -m metadir -r $CI_PROJECT_DIR/stagedir -p pkg-plist -o $CI_PROJECT_DIR
     - echo "Package creation completed"
-    - echo "Setting up repository directories"
-    - mkdir -p $CI_PROJECT_DIR/awgrepo/FreeBSD:14:amd64
-    - mkdir -p $CI_PROJECT_DIR/awgrepo/FreeBSD:15:amd64
-    - echo "Copying packages to repository directories"
-    - cp $CI_PROJECT_DIR/pfSense-pkg-Amneziawireguard-*.pkg $CI_PROJECT_DIR/awgrepo/FreeBSD:14:amd64/
-    - cp $CI_PROJECT_DIR/pfSense-pkg-Amneziawireguard-*.pkg $CI_PROJECT_DIR/awgrepo/FreeBSD:15:amd64/
-    - echo "Creating repository metadata for FreeBSD 14"
-    - pkg repo $CI_PROJECT_DIR/awgrepo/FreeBSD:14:amd64
-    - echo "Creating repository metadata for FreeBSD 15"
-    - pkg repo $CI_PROJECT_DIR/awgrepo/FreeBSD:15:amd64
+    - echo "Detecting system architecture"
+    - export ABI=$(pkg config abi)
+    - echo "Detected ABI: ${ABI}"
+    - echo "Setting up repository directory"
+    - mkdir -p $CI_PROJECT_DIR/awgrepo/${ABI}
+    - echo "Copying package to repository directory"
+    - cp $CI_PROJECT_DIR/pfSense-pkg-Amneziawireguard-*.pkg $CI_PROJECT_DIR/awgrepo/${ABI}/
+    - echo "Creating repository metadata"
+    - pkg repo $CI_PROJECT_DIR/awgrepo/${ABI}
     - echo "Compressing repository"
     - cd $CI_PROJECT_DIR && tar -czf awgrepo.tar.gz awgrepo/
     - echo "Repository packaging completed"
