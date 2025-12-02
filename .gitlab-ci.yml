@@ -28,8 +28,21 @@ build_and_package:
     - echo "Creating pfSense package"
     - pkg create -m metadir -r $CI_PROJECT_DIR/stagedir -p pkg-plist -o $CI_PROJECT_DIR
     - echo "Package creation completed"
+    - echo "Setting up repository directories"
+    - mkdir -p $CI_PROJECT_DIR/awgrepo/FreeBSD:14:amd64
+    - mkdir -p $CI_PROJECT_DIR/awgrepo/FreeBSD:15:amd64
+    - echo "Copying packages to repository directories"
+    - cp $CI_PROJECT_DIR/pfSense-pkg-Amneziawireguard-*.pkg $CI_PROJECT_DIR/awgrepo/FreeBSD:14:amd64/
+    - cp $CI_PROJECT_DIR/pfSense-pkg-Amneziawireguard-*.pkg $CI_PROJECT_DIR/awgrepo/FreeBSD:15:amd64/
+    - echo "Creating repository metadata for FreeBSD 14"
+    - pkg repo $CI_PROJECT_DIR/awgrepo/FreeBSD:14:amd64
+    - echo "Creating repository metadata for FreeBSD 15"
+    - pkg repo $CI_PROJECT_DIR/awgrepo/FreeBSD:15:amd64
+    - echo "Compressing repository"
+    - cd $CI_PROJECT_DIR && tar -czf awgrepo.tar.gz awgrepo/
+    - echo "Repository packaging completed"
   artifacts:
     paths:
-      - $CI_PROJECT_DIR/*.pkg
+      - $CI_PROJECT_DIR/awgrepo.tar.gz
   tags:
     - freebsd-runner
