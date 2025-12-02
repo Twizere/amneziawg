@@ -14,6 +14,7 @@ rm -f /usr/local/share/pfSense-pkg-Amneziawireguard/*.xml
 rm -f /usr/local/www/awg/js/*.js
 rm -rf /usr/local/www/awg/*
 rm -rf /usr/local/www/shortcuts/*
+rm -f /usr/local/etc/pkg/repos/Amneziawireguard.conf
 
 # Remove directories (only if empty, to avoid unintended deletions)
 echo " - Removing directories..."

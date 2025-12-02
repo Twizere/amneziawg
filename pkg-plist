@@ -3,6 +3,7 @@ bin/awg-api
 bin/awg-quick
 bin/amneziawg-go
 bin/post_install.sh
+etc/pkg/repos/Amneziawireguard.conf
 pkg/amneziawireguard/includes/awgconfig.php
 pkg/amneziawireguard/includes/awg_header.inc
 pkg/amneziawireguard/includes/wg_api.inc
