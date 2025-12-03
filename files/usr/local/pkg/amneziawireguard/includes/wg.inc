@@ -400,11 +400,17 @@ function wg_do_settings_post($post) {
 	$pconfig['interface_group']		= empty($post['interface_group']) ? 'all' : $post['interface_group'];
 	$pconfig['hide_secrets']		= empty($post['hide_secrets']) ? 'no' : $post['hide_secrets'];
 	$pconfig['hide_peers']			= empty($post['hide_peers']) ? 'no' : $post['hide_peers'];
+	$pconfig['repo_url']			= trim($post['repo_url']);
 
 	$input_errors = wg_validate_settings_post($pconfig);
 
 	if (empty($input_errors)) {
 		config_set_path('installedpackages/amneziawg/config/0', $pconfig);
+
+		// Update repository configuration file if repo_url changed
+		if (isset($pconfig['repo_url']) && $pconfig['repo_url'] !== $old_config['repo_url']) {
+			wg_update_repo_config($pconfig['repo_url']);
+		}
 
 		// Sync with configuration backend
 		wg_write_config('Saved package settings.', true);
@@ -1118,6 +1124,42 @@ function getPublicIP()
     
     // If all services fail, return a default message
     return 'Unable to determine';
+}
+
+/*
+ * Updates the repository configuration file
+ */
+function wg_update_repo_config($repo_url) {
+	$repo_conf_path = '/usr/local/etc/pkg/repos/Amneziawireguard.conf';
+	
+	if (empty($repo_url)) {
+		return;
+	}
+	
+	$content = "Amneziawireguard: {\n";
+	$content .= "  url: \"" . $repo_url . "\",\n";
+	$content .= "  enabled: yes\n";
+	$content .= "}\n";
+	
+	@file_put_contents($repo_conf_path, $content);
+	@chmod($repo_conf_path, 0644);
+}
+
+/*
+ * Reads the current repository URL from config file
+ */
+function wg_get_repo_url() {
+	$repo_conf_path = '/usr/local/etc/pkg/repos/Amneziawireguard.conf';
+	
+	if (file_exists($repo_conf_path)) {
+		$content = @file_get_contents($repo_conf_path);
+		if (preg_match('/url:\s*"([^"]+)"/', $content, $matches)) {
+			return $matches[1];
+		}
+	}
+	
+	// Return empty if not found
+	return '';
 }
 
 function wg_autoloader($classname) {

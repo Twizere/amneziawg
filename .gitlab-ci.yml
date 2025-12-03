@@ -1,6 +1,9 @@
 stages:
   - build
 
+variables:
+  PKG_VERSION: "1.0.0"  # Update this version number for each release
+
 before_script:
   - echo "Setting up the build environment"
 
@@ -8,8 +11,12 @@ build_and_package:
   stage: build
   script:
     - echo "Installing dependencies"
-    - echo "Cleaning up previous stagedir"
+    - echo "Building version ${PKG_VERSION}"
+    - echo "Cleaning up previous stagedir and build artifacts"
     - rm -rf $CI_PROJECT_DIR/stagedir
+    - rm -rf $CI_PROJECT_DIR/awgrepo
+    - rm -f $CI_PROJECT_DIR/*.pkg
+    - rm -f $CI_PROJECT_DIR/*.tar.gz
     - echo "Listing files in $CI_PROJECT_DIR before copying"
     - ls -la $CI_PROJECT_DIR
     - mkdir -p $CI_PROJECT_DIR/stagedir
@@ -25,6 +32,8 @@ build_and_package:
     - cp -r $CI_PROJECT_DIR/files/. $CI_PROJECT_DIR/stagedir/
     - echo "Listing files in stagedir after copy"
     - ls -la $CI_PROJECT_DIR/stagedir
+    - echo "Updating version in +MANIFEST to ${PKG_VERSION}"
+    - sed -i '' "s/\"version\": \".*\"/\"version\": \"${PKG_VERSION}\"/" $CI_PROJECT_DIR/metadir/+MANIFEST
     - echo "Creating pfSense package"
     - pkg create -m metadir -r $CI_PROJECT_DIR/stagedir -p pkg-plist -o $CI_PROJECT_DIR
     - echo "Package creation completed"
@@ -37,11 +46,11 @@ build_and_package:
     - cp $CI_PROJECT_DIR/pfSense-pkg-Amneziawireguard-*.pkg $CI_PROJECT_DIR/awgrepo/${ABI}/
     - echo "Creating repository metadata"
     - pkg repo $CI_PROJECT_DIR/awgrepo/${ABI}
-    - echo "Compressing repository"
-    - cd $CI_PROJECT_DIR && tar -czf awgrepo.tar.gz awgrepo/
+    - echo "Compressing repository with version ${PKG_VERSION}"
+    - cd $CI_PROJECT_DIR && tar -czf awgrepo-${PKG_VERSION}-${ABI}.tar.gz awgrepo/${ABI}/
     - echo "Repository packaging completed"
   artifacts:
     paths:
-      - $CI_PROJECT_DIR/awgrepo.tar.gz
+      - $CI_PROJECT_DIR/awgrepo-*.tar.gz
   tags:
     - freebsd-runner

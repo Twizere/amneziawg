@@ -205,7 +205,23 @@ $section->addInput(new Form_Checkbox(
 	gettext('Enable'),
 	$pconfig['hide_peers'] == 'yes'
 ))->setHelp("<span class=\"text-danger\">{$s(gettext('Note:'))} </span>
-		{$s(gettext("With 'Hide Peers' enabled (default), all peers for all tunnels will initially be hidden on the status page."))}");
+		{$s(gettext('With \'Hide Peers\' enabled (default), all peers for all tunnels will initially be hidden on the status page.'))}");
+		
+$form->add($section);
+
+$section = new Form_Section(gettext('Repository Settings'));
+
+// Get current repo URL from file only
+$current_repo_url = wg_get_repo_url();
+
+$section->addInput(new Form_Input(
+	'repo_url',
+	gettext('Repository URL'),
+	'text',
+	$current_repo_url
+))->setHelp(gettext('Specify the package repository URL. Use ${ABI} as a placeholder for architecture (e.g., FreeBSD:14:amd64).') . '<br />' .
+	"<span class=\"text-danger\">{$s(gettext('Note:'))} </span>" .
+	$s(gettext('This shows the actual URL from /usr/local/etc/pkg/repos/Amneziawireguard.conf')));
 		
 $form->add($section);
 
