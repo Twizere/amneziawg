@@ -3,7 +3,7 @@ stages:
 
 variables:
   PKG_VERSION: "1.0.0"
-  WEB_REPO_PATH: "/usr/local/www/awgrepo"
+  WEB_REPO_PATH: "/usr/local/www/awgrepo.qtsoftwareltd.com/awgrepo"
 
 before_script:
   - echo "Setting up the build environment"
