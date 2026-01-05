@@ -52,6 +52,8 @@ build_and_package:
     - echo "Repository packaging completed"
     - echo "Deploying repository to web server directory"
     - sudo mkdir -p ${WEB_REPO_PATH}
+    - echo "Cleaning old repository data"
+    - sudo rm -rf ${WEB_REPO_PATH}/FreeBSD:*
     - echo "Extracting repository to ${WEB_REPO_PATH}"
     - sudo tar -xzf $CI_PROJECT_DIR/awgrepo-${PKG_VERSION}-${ABI}.tar.gz -C ${WEB_REPO_PATH} --strip-components 1
     - echo "Setting proper permissions"
