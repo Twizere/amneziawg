@@ -51,12 +51,12 @@ build_and_package:
     - cd $CI_PROJECT_DIR && tar -czf awgrepo-${PKG_VERSION}-${ABI}.tar.gz awgrepo/${ABI}/
     - echo "Repository packaging completed"
     - echo "Deploying repository to web server directory"
-    - mkdir -p ${WEB_REPO_PATH}
+    - sudo mkdir -p ${WEB_REPO_PATH}
     - echo "Extracting repository to ${WEB_REPO_PATH}"
-    - tar -xzf $CI_PROJECT_DIR/awgrepo-${PKG_VERSION}-${ABI}.tar.gz -C ${WEB_REPO_PATH} --strip-components 1
+    - sudo tar -xzf $CI_PROJECT_DIR/awgrepo-${PKG_VERSION}-${ABI}.tar.gz -C ${WEB_REPO_PATH} --strip-components 1
     - echo "Setting proper permissions"
-    - chown -R www:www ${WEB_REPO_PATH}
-    - chmod -R 755 ${WEB_REPO_PATH}
+    - sudo chown -R www:www ${WEB_REPO_PATH}
+    - sudo chmod -R 755 ${WEB_REPO_PATH}
     - echo "Repository deployed successfully"
     - echo "Verifying deployment"
     - ls -la ${WEB_REPO_PATH}/${ABI}/
