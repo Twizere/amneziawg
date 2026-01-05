@@ -3,6 +3,7 @@ stages:
 
 variables:
   PKG_VERSION: "1.0.0"  # Update this version number for each release
+  WEB_REPO_PATH: "/usr/local/www/awgrepo"  # Web server repository path
 
 before_script:
   - echo "Setting up the build environment"
@@ -49,6 +50,16 @@ build_and_package:
     - echo "Compressing repository with version ${PKG_VERSION}"
     - cd $CI_PROJECT_DIR && tar -czf awgrepo-${PKG_VERSION}-${ABI}.tar.gz awgrepo/${ABI}/
     - echo "Repository packaging completed"
+    - echo "Deploying repository to web server directory"
+    - mkdir -p ${WEB_REPO_PATH}
+    - echo "Extracting repository to ${WEB_REPO_PATH}"
+    - tar -xzf $CI_PROJECT_DIR/awgrepo-${PKG_VERSION}-${ABI}.tar.gz -C ${WEB_REPO_PATH} --strip-components=1
+    - echo "Setting proper permissions"
+    - chown -R www:www ${WEB_REPO_PATH}
+    - chmod -R 755 ${WEB_REPO_PATH}
+    - echo "Repository deployed successfully"
+    - echo "Verifying deployment"
+    - ls -la ${WEB_REPO_PATH}/${ABI}/
   artifacts:
     paths:
       - $CI_PROJECT_DIR/awgrepo-*.tar.gz
