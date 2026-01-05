@@ -15,6 +15,7 @@ rm -f /usr/local/www/awg/js/*.js
 rm -rf /usr/local/www/awg/*
 rm -rf /usr/local/www/shortcuts/*
 rm -f /usr/local/etc/pkg/repos/Amneziawireguard.conf
+rm -f /var/log/amneziawg_auto_update.log
 
 # Remove directories (only if empty, to avoid unintended deletions)
 echo " - Removing directories..."

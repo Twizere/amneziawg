@@ -23,6 +23,7 @@
     "/usr/local/pkg/amneziawireguard/includes/awgconfig.php": "644",
     "/usr/local/pkg/amneziawireguard/includes/awg_header.inc": "644",
     "/usr/local/pkg/amneziawireguard/includes/wg_api.inc": "644",
+    "/usr/local/pkg/amneziawireguard/includes/wg_auto_update.php": "755",
     "/usr/local/pkg/amneziawireguard/includes/wg_globals.inc": "644",
     "/usr/local/pkg/amneziawireguard/includes/wg_guiconfig.inc": "644",
     "/usr/local/pkg/amneziawireguard/includes/wg_install.inc": "644",

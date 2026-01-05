@@ -222,6 +222,14 @@ $section->addInput(new Form_Input(
 ))->setHelp(gettext('Specify the package repository URL. Use ${ABI} as a placeholder for architecture (e.g., FreeBSD:14:amd64).') . '<br />' .
 	"<span class=\"text-danger\">{$s(gettext('Note:'))} </span>" .
 	$s(gettext('This shows the actual URL from /usr/local/etc/pkg/repos/Amneziawireguard.conf')));
+
+$section->addInput(new Form_Checkbox(
+	'auto_update',
+	gettext('Auto Update'),
+	gettext('Enable'),
+	$pconfig['auto_update'] == 'yes'
+))->setHelp("<span class=\"text-danger\">{$s(gettext('Note:'))} </span>" .
+	$s(gettext('Automatically check for and install package updates daily at 3:00 AM. This creates a cron job for automatic updates.')));
 		
 $form->add($section);
 

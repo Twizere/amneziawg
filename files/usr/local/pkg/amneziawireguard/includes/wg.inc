@@ -401,6 +401,7 @@ function wg_do_settings_post($post) {
 	$pconfig['hide_secrets']		= empty($post['hide_secrets']) ? 'no' : $post['hide_secrets'];
 	$pconfig['hide_peers']			= empty($post['hide_peers']) ? 'no' : $post['hide_peers'];
 	$pconfig['repo_url']			= trim($post['repo_url']);
+	$pconfig['auto_update']			= empty($post['auto_update']) ? 'no' : $post['auto_update'];
 
 	$input_errors = wg_validate_settings_post($pconfig);
 
@@ -410,6 +411,15 @@ function wg_do_settings_post($post) {
 		// Update repository configuration file if repo_url changed
 		if (isset($pconfig['repo_url']) && $pconfig['repo_url'] !== $old_config['repo_url']) {
 			wg_update_repo_config($pconfig['repo_url']);
+		}
+
+		// Manage auto-update cron job
+		if ($pconfig['auto_update'] !== $old_config['auto_update']) {
+			if ($pconfig['auto_update'] == 'yes') {
+				wg_install_auto_update_cron();
+			} else {
+				wg_remove_auto_update_cron();
+			}
 		}
 
 		// Sync with configuration backend
@@ -1160,6 +1170,63 @@ function wg_get_repo_url() {
 	
 	// Return empty if not found
 	return '';
+}
+
+/*
+ * Installs the auto-update cron job
+ */
+function wg_install_auto_update_cron() {
+	global $config;
+	
+	// Remove existing cron job first
+	wg_remove_auto_update_cron();
+	
+	if (!is_array($config['cron'])) {
+		$config['cron'] = array();
+	}
+	if (!is_array($config['cron']['item'])) {
+		$config['cron']['item'] = array();
+	}
+	
+	// Add new cron job - runs daily at 3 AM
+	$cron_item = array(
+		'minute' => '*/10',
+		'hour' => '*',
+		'mday' => '*',
+		'month' => '*',
+		'wday' => '*',
+		'who' => 'root',
+		'command' => '/usr/local/bin/php -f /usr/local/pkg/amneziawireguard/includes/wg_auto_update.php',
+		'description' => 'AmneziaWireguard Auto Update'
+	);
+	
+	$config['cron']['item'][] = $cron_item;
+	write_config('Added AmneziaWireguard auto-update cron job');
+	configure_cron();
+}
+
+/*
+ * Removes the auto-update cron job
+ */
+function wg_remove_auto_update_cron() {
+	global $config;
+	
+	if (!is_array($config['cron']) || !is_array($config['cron']['item'])) {
+		return;
+	}
+	
+	$updated = false;
+	foreach ($config['cron']['item'] as $idx => $cron_item) {
+		if (isset($cron_item['description']) && $cron_item['description'] == 'AmneziaWireguard Auto Update') {
+			unset($config['cron']['item'][$idx]);
+			$updated = true;
+		}
+	}
+	
+	if ($updated) {
+		write_config('Removed AmneziaWireguard auto-update cron job');
+		configure_cron();
+	}
 }
 
 function wg_autoloader($classname) {
