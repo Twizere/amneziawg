@@ -457,6 +457,75 @@ function listTunnels()
     }
 }
 
+function getConnectedPeers()
+{
+    // Get the running status of all tunnels and their peers
+    $devices_status = wg_get_status();
+    
+    if (empty($devices_status)) {
+        respond(200, [], 'No active tunnels or connected peers found.');
+    }
+    
+    // Map to track each tunnel and its connected peers
+    $tunnels_map = [];
+    // Map to track which tunnel has the latest handshake for each peer
+    $peer_tunnel_map = [];
+    
+    // First pass: collect all peers and determine which tunnel has the latest handshake for each peer
+    foreach ($devices_status as $tunnel_name => $tunnel_data) {
+        if (empty($tunnel_data['peers'])) {
+            continue;
+        }
+
+        // Initialize tunnel entry if it does not exist yet
+        if (!isset($tunnels_map[$tunnel_name])) {
+            $tunnels_map[$tunnel_name] = [
+                'tunnel' => htmlspecialchars($tunnel_name),
+                'peers' => [],
+            ];
+        }
+
+        foreach ($tunnel_data['peers'] as $peer_public_key => $peer_data) {
+            $latest_handshake = intval($peer_data['latest_handshake'] ?? 0);
+            
+            // Track which tunnel has the latest handshake for this peer
+            if (!isset($peer_tunnel_map[$peer_public_key]) || 
+                $latest_handshake > $peer_tunnel_map[$peer_public_key]['latest_handshake']) {
+                $peer_tunnel_map[$peer_public_key] = [
+                    'tunnel' => $tunnel_name,
+                    'latest_handshake' => $latest_handshake,
+                    'peer_data' => $peer_data,
+                ];
+            }
+        }
+    }
+    
+    // Second pass: add each peer only to the tunnel where it has the latest handshake
+    foreach ($peer_tunnel_map as $peer_public_key => $peer_info) {
+        $tunnel_name = $peer_info['tunnel'];
+        $peer_data = $peer_info['peer_data'];
+        $latest_handshake = $peer_info['latest_handshake'];
+        
+        $tunnels_map[$tunnel_name]['peers'][] = [
+            'public_key' => htmlspecialchars($peer_public_key),
+            'description' => htmlspecialchars($peer_data['config']['descr'] ?? ''),
+            'latest_handshake' => $latest_handshake,
+            'latest_handshake_human' => wg_human_time_diff("@{$latest_handshake}"),
+        ];
+    }
+    
+    // Add total peers count for each tunnel
+    foreach ($tunnels_map as $tunnel_name => &$tunnel_info) {
+        $tunnel_info['total_peers'] = is_array($tunnel_info['peers']) ? count($tunnel_info['peers']) : 0;
+    }
+    unset($tunnel_info);
+
+    // Convert the map to an indexed array for the response
+    $connected_peers = array_values($tunnels_map);
+    
+    return $connected_peers;
+}
+
 
 
 function addPeer($peerData)
@@ -1107,6 +1176,9 @@ if (!empty($input) && is_array($input)) {
             break;
         case "get_tunnels":
             respond(200, listTunnels());
+            break;
+        case "get_connected_peers":
+            respond(200, getConnectedPeers());
             break;
         case "sync_peers":
             $peers = $input['peers'] ?? [];
