@@ -468,10 +468,8 @@ function getConnectedPeers()
     
     // Map to track each tunnel and its connected peers
     $tunnels_map = [];
-    // Map to track which tunnel has the latest handshake for each peer
-    $peer_tunnel_map = [];
     
-    // First pass: collect all peers and determine which tunnel has the latest handshake for each peer
+    // Iterate through all tunnels and their peers
     foreach ($devices_status as $tunnel_name => $tunnel_data) {
         if (empty($tunnel_data['peers'])) {
             continue;
@@ -487,31 +485,14 @@ function getConnectedPeers()
 
         foreach ($tunnel_data['peers'] as $peer_public_key => $peer_data) {
             $latest_handshake = intval($peer_data['latest_handshake'] ?? 0);
-            
-            // Track which tunnel has the latest handshake for this peer
-            if (!isset($peer_tunnel_map[$peer_public_key]) || 
-                $latest_handshake > $peer_tunnel_map[$peer_public_key]['latest_handshake']) {
-                $peer_tunnel_map[$peer_public_key] = [
-                    'tunnel' => $tunnel_name,
-                    'latest_handshake' => $latest_handshake,
-                    'peer_data' => $peer_data,
-                ];
-            }
+
+            $tunnels_map[$tunnel_name]['peers'][] = [
+                'public_key' => htmlspecialchars($peer_public_key),
+                'description' => htmlspecialchars($peer_data['config']['descr'] ?? ''),
+                'latest_handshake' => $latest_handshake,
+                'latest_handshake_human' => wg_human_time_diff("@{$latest_handshake}"),
+            ];
         }
-    }
-    
-    // Second pass: add each peer only to the tunnel where it has the latest handshake
-    foreach ($peer_tunnel_map as $peer_public_key => $peer_info) {
-        $tunnel_name = $peer_info['tunnel'];
-        $peer_data = $peer_info['peer_data'];
-        $latest_handshake = $peer_info['latest_handshake'];
-        
-        $tunnels_map[$tunnel_name]['peers'][] = [
-            'public_key' => htmlspecialchars($peer_public_key),
-            'description' => htmlspecialchars($peer_data['config']['descr'] ?? ''),
-            'latest_handshake' => $latest_handshake,
-            'latest_handshake_human' => wg_human_time_diff("@{$latest_handshake}"),
-        ];
     }
     
     // Add total peers count for each tunnel

@@ -55,7 +55,31 @@ Use `{{base_url}}` as a variable placeholder in environments like Postman.
 
 - **Response**: JSON object containing all tunnel configurations.
 
-### 3. Sync Peers
+### 3. Get Connected Devices
+
+- **Endpoint**: `POST {{base_url}}/`
+- **Purpose**: Retrieve the list of currently connected devices/peers with their associated tunnel. If a device is connected to multiple tunnels, only the tunnel with the most recent handshake is returned.
+- **Request Body**:
+
+```json
+{
+  "act": "get_connected_devices"
+}
+```
+
+- **Response**: JSON array containing connected devices with the following information:
+  - `public_key`: Public key of the peer
+  - `description`: Peer description
+  - `tunnel`: Tunnel name the peer is currently connected to
+  - `latest_handshake`: Unix timestamp of the latest handshake
+  - `latest_handshake_human`: Human-readable time since last handshake
+  - `allowed_ips`: Array of allowed IP addresses for the peer
+  - `transfer_rx`: Formatted bytes received
+  - `transfer_tx`: Formatted bytes transmitted
+  - `transfer_rx_bytes`: Raw bytes received (integer)
+  - `transfer_tx_bytes`: Raw bytes transmitted (integer)
+
+### 4. Sync Peers
 
 - **Endpoint**: `POST {{base_url}}/`
 - **Purpose**: Sync a list of peers with a specified tunnel. Useful for bulk updating peers.
@@ -78,7 +102,7 @@ Use `{{base_url}}` as a variable placeholder in environments like Postman.
 
 - **Response**: Status of the synchronization.
 
-### 4. Reload Tunnel
+### 5. Reload Tunnel
 
 - **Endpoint**: `POST {{base_url}}/`
 - **Purpose**: Reload a specific WireGuard tunnel interface.
